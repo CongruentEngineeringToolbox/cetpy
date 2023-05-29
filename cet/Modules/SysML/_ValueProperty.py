@@ -6,13 +6,15 @@ This file implements a basic SysML Value Property.
 
 References
 ----------
-    SysML Documentation:
-        https://sysml.org/.res/docs/specs/OMGSysML-v1.4-15-06-03.pdf
+SysML Documentation:
+    https://sysml.org/.res/docs/specs/OMGSysML-v1.4-15-06-03.pdf
 """
 
 from __future__ import annotations
 
 from typing import Any, Tuple, Callable
+
+from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label
 
 
 def value_property(func: Callable) -> ValueProperty:
@@ -44,6 +46,10 @@ class ValueProperty:
     def __set_name__(self, instance, name):
         self._name = name
         self._instance = instance
+        if self._unit is None:
+            self._unit = name_2_unit(name)
+        if self._axis_label is None:
+            self._axis_label = name_2_axis_label(name)
 
     def __str__(self) -> str:
         return str(self.value) + ' ' + self.unit

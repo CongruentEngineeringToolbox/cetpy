@@ -6,27 +6,16 @@ This file implements a basic SysML Block.
 
 References
 ----------
-    SysML Documentation:
-        https://sysml.org/.res/docs/specs/OMGSysML-v1.4-15-06-03.pdf
+SysML Documentation:
+    https://sysml.org/.res/docs/specs/OMGSysML-v1.4-15-06-03.pdf
 """
 
 from __future__ import annotations
 
-import re
 from typing import List
 
-
-def name_2_abbreviation(name: str) -> str:
-    """Return a sensible abbreviation for a component name."""
-    name_split = name.split('_')
-    if len(name_split) == 1:
-        abbreviation = name_split[0][:3].upper()
-    else:
-        abbreviation = "".join([n[0].upper() for n in name_split[:3]])
-    suffix = re.findall(r'^[A-Za-z0-9]*?([0-9]+)$', name)
-    if len(suffix) > 0:
-        abbreviation += suffix[0]
-    return abbreviation
+from cet.Modules.Utilities.Labelling import name_2_abbreviation
+from cet.Modules.Solver import Solver
 
 
 class Block:
@@ -34,7 +23,7 @@ class Block:
 
     __slots__ = ['_resetting', '_bool_parent_reset',
                  'name', 'abbreviation', 'parent', 'tolerance',
-                 'parts', 'ports', 'requirements']
+                 'parts', 'ports', 'requirements', 'solvers']
 
     def __init__(self, name: str, abbreviation: str = None,
                  parent: Block = None, tolerance: float = None) -> None:
@@ -56,10 +45,24 @@ class Block:
         self.parts: List[Block] = []
         self.ports = []
         self.requirements = []
+        self.solvers: List[Solver] = []
         # endregion
 
     # region Solver Functions
-    def reset(self) -> None:
-        """Tell the instance to resolve before the next output."""
-        pass
+    def reset(self, parent_reset: bool = None) -> None:
+        """Tell the instance and sub-blocks to resolve before the next
+        value output."""
+        if not self._resetting:
+            self._resetting = True
+            # reset all sub solvers while not calling the instances own reset
+            for s in self.solvers:
+                s.reset(parent_reset=False)
+
+            # Reset parent instance if desired:
+            if parent_reset is None:
+                parent_reset = self._bool_parent_reset
+            if parent_reset:
+                self.parent.reset()
+
+            self._resetting = False
     # endregion

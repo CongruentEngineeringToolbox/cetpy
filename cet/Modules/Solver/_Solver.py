@@ -12,19 +12,26 @@ from typing import List
 class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 '_name', 'parent', 'convergence_keys']
+                 '_name', 'parent', 'convergence_keys', '_tolerance']
 
-    def __init__(self):
+    def __init__(self, parent, tolerance: float):
         self._recalculate = False
         self._calculating = False
         self._resetting = False
         self._hold = 0
         self.convergence_keys: List[str] = []
+        self.parent = parent
+        if parent is not None and self not in parent.solvers:
+            parent.solvers += [self]
+        self._tolerance = 0
+        self.tolerance = tolerance
 
     # region Interface Functions
     def __set_name__(self, instance, name):
         self._name = name
         self.parent = instance
+        if self not in instance.solvers:
+            instance.solvers += [self]
 
     def reset(self, parent_reset: bool = True) -> None:
         """Tell the solver to resolve before the next value output."""
@@ -62,14 +69,44 @@ class Solver:
         """Return bool if the solver is solved or currently running."""
         return self.solved or self.calculating
 
+    @property
+    def hold(self) -> bool:
+        """Current hold status. Hold enables an additional user input to
+        enable and disable the automatic run of individual solvers. The hold is
+        stored as an integer enabling nested holds throughout the system.
+
+        See Also
+        --------
+        Solver.raise_hold
+        Solver.lower_hold
+        """
+        return bool(self._hold)
+
+    @hold.setter
+    def hold(self, val: (bool, int)) -> None:
+        self._hold = int(val)
+
+    def raise_hold(self) -> None:
+        """Raise the hold level by one."""
+        self._hold += 1
+
+    def lower_hold(self) -> None:
+        """Lower the hold level by one."""
+        self._hold += 1
+
     def force_solve(self) -> None:
         """Run the solver, regardless of the current solver state."""
         self._solve()
         # ToDo: Add timing and logging.
 
     def solve(self) -> None:
-        """Run the solver if necessary."""
-        if not self.solved_calculating:
+        """Run the solver if necessary and allowed.
+
+        The solver will run if the solver is not already solved, the
+        solver is not currently already running, and the solver does not
+        currently have an enabled hold condition.
+        """
+        if not self.solved_calculating and not self.hold:
             self.force_solve()
     # endregion
 
@@ -93,4 +130,17 @@ class Solver:
         self._pre_solve()
         self._solve_function()
         self._post_solve()
+    # endregion
+
+    # region Input Properties
+    @property
+    def tolerance(self) -> float:
+        """Solver tolerance."""
+        return self._tolerance
+
+    @tolerance.setter
+    def tolerance(self, val: float) -> None:
+        if val < self._tolerance:
+            self.reset()
+        self._tolerance = val
     # endregion

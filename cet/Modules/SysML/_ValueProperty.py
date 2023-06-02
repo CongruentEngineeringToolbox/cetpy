@@ -12,9 +12,11 @@ SysML Documentation:
 
 from __future__ import annotations
 
-from typing import Any, Tuple, Callable
+from typing import Any, Tuple, Callable, List
+import logging
 
-from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label
+from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
+    scale_value
 
 
 def value_property(func: Callable) -> ValueProperty:
@@ -24,18 +26,90 @@ def value_property(func: Callable) -> ValueProperty:
     return prop
 
 
+class UnitFloat(float):
+    """Extension fo the python float to add a unit representation."""
+
+    __slots__ = ['unit']
+
+    def __new__(cls, value: float, unit: str = None):
+        return float.__new__(cls, value)
+
+    def __init__(self, value: float, unit: str = None):
+        super().__init__()
+        self.unit = unit
+
+    def __str__(self) -> str:
+        value, prefix = scale_value(self * 1.0)
+        return str(value) + ' ' + prefix + self.unit
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+class DeterminationTest:
+    """Class to manage over- and under-determination of model inputs."""
+
+    def __init__(self, instance: object, properties: List[str] = None,
+                 num: int = 1, auto_fix: bool = True) -> None:
+        self._instance = instance
+        self._num = num
+        self.auto_fix = auto_fix
+        if properties is None:
+            properties: List[str] = []
+        self.properties = properties
+
+    @property
+    def num(self) -> int:
+        """Number of properties allowed to be fixed."""
+        return self._num
+
+    @num.setter
+    def num(self, val: int) -> None:
+        self._num = val
+
+    def test(self, new: str = None) -> None:
+        """Test the determination of the instance. If auto fix is on,
+        the test attempts to automatically fix it."""
+        n_actual = sum([self._instance.__getattribute__(n)._value is not None
+                        for n in self.properties])
+        n_target = self._num
+
+        direction = ''
+        amendment = ''
+        if n_actual == n_target:
+            return
+        elif n_actual > n_target:
+            direction = 'over-'
+            if self.auto_fix and self._num == 1:
+                [self._instance.__setattr__(n, None) for n in self.properties
+                 if n == new]
+                # noinspection PyUnresolvedReferences
+                logging.info(f"Autocorrected {self._instance.name_display} "
+                             f"over-determination. {new} is the new input.")
+            elif self.auto_fix:
+                amendment = ' Autofix failed.'
+
+        elif n_actual < n_target:
+            direction = 'under-'
+
+        # noinspection PyUnresolvedReferences
+        logging.warning(
+            f"{self._instance.name_display} is {direction}determined. Of "
+            f"{', '.join(self.properties)} {n_target} must be set. "
+            f"Currently {n_actual} are set.{amendment}")
+
+
 class ValueProperty:
     """SysML ValueProperty which adds units of measure and error
     calculation."""
-    __slots__ = ['_name', '_instance', '_value', '_unit', '_axis_label',
-                 'fget', 'fset']
+    __slots__ = ['_name', '_name_instance', 'determination_test',
+                 '_unit', '_axis_label', 'fget', 'fset']
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
                  fget: Callable = None, fset: Callable = None) -> None:
         self._name = ''
-        self._instance = None
-        self._value = None
+        self.determination_test = None
         self._unit = unit
         self._axis_label = axis_label
 
@@ -45,41 +119,40 @@ class ValueProperty:
     # region Getters and Setters
     def __set_name__(self, instance, name):
         self._name = name
-        self._instance = instance
+        self._name_instance = '_' + name
         if self._unit is None:
             self._unit = name_2_unit(name)
         if self._axis_label is None:
             self._axis_label = name_2_axis_label(name)
 
-    def __str__(self) -> str:
-        return str(self.value) + ' ' + self.unit
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    @property
-    def value(self) -> Any:
+    def value(self, instance) -> Any:
         """Return the value property value with significant figure rounding."""
-        value = self.value_raw
+        value = self.value_raw(instance)
         if isinstance(value, float):
             return float('{:.{p}g}'.format(value, p=5))
         else:
             return value
 
-    @property
-    def value_raw(self) -> Any:
+    def value_raw(self, instance) -> Any:
         """Return the value property value without further modification."""
-        if self._value is not None or self.fget is None:
-            return self._value
-        else:
-            return self.fget(self._instance)
+        return self.__get__(instance, None)
 
     def __get__(self, instance, owner):
-        return self
+        if instance is None:
+            return self
+        name = self._name_instance
+        if name in instance.__slots__:
+            value = instance.__getattribute__(name)
+        else:
+            value = instance.__dict__.get(name, None)
+        if value is not None or self.fget is None:
+            return value
+        else:
+            return self.fget(instance)
 
     def __set__(self, instance, value) -> None:
         if self.fset is None:
-            self._value = value
+            instance.__setattr__(self._name_instance, value)
         else:
             self.fset(instance, value)
         instance.reset()
@@ -107,89 +180,11 @@ class ValueProperty:
 
     # region Pickling
     def __getstate__(self) -> Tuple:
-        return self._value, self._unit, self._axis_label
+        return self._name, self._name_instance, self._unit, self._axis_label
 
     def __setstate__(self, state: Tuple) -> None:
-        self._value, self._unit, self._axis_label = state
+        self._name, self._name_instance, self._unit, self._axis_label = state
 
     def __hash__(self):
         return super().__hash__()
-    # endregion
-
-    # region Math
-    def __invert__(self) -> float:
-        return ~self.value_raw
-
-    def __add__(self, x: float) -> float:
-        return self.value_raw + x
-
-    def __sub__(self, x: float) -> float:
-        return self.value_raw - x
-
-    def __mul__(self, x: float) -> float:
-        return self.value_raw * x
-
-    def __floordiv__(self, x: float) -> float:
-        return self.value_raw // x
-
-    def __truediv__(self, x: float) -> float:
-        return self.value_raw / x
-
-    def __mod__(self, x: float) -> float:
-        return self.value_raw % x
-
-    def __divmod__(self, x: float) -> Tuple[float, float]:
-        return divmod(self.value_raw, x)
-
-    def __pow__(self, x: float, mod=None) -> float:
-        return pow(self.value_raw, x, mod)
-
-    def __radd__(self, x: float) -> float:
-        return x + self.value_raw
-
-    def __rsub__(self, x: float) -> float:
-        return x - self.value_raw
-
-    def __rmul__(self, x: float) -> float:
-        return x * self.value_raw
-
-    def __rfloordiv__(self, x: float) -> float:
-        return x // self.value_raw
-
-    def __rtruediv__(self, x: float) -> float:
-        return x / self.value_raw
-
-    def __rmod__(self, x: float) -> float:
-        return x % self.value_raw
-
-    def __rdivmod__(self, x: float) -> Tuple[float, float]:
-        return divmod(x, self.value_raw)
-
-    def __rpow__(self, x: float, mod=None) -> float:
-        return pow(x, self.value_raw, mod)
-
-    def __eq__(self, x):
-        return self.value_raw == x
-
-    def __ge__(self, x):
-        return self.value_raw >= x
-
-    def __gt__(self, x):
-        return self.value_raw > x
-
-    def __le__(self, x):
-        return self.value_raw <= x
-
-    def __lt__(self, x):
-        return self.value_raw < x
-
-    def __pos__(self) -> float:
-        return +self.value_raw
-
-    def __neg__(self) -> float:
-        return -self.value_raw
-    # endregion
-
-    # region Decorators
-
     # endregion

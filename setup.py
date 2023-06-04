@@ -1,4 +1,3 @@
-# Always prefer setuptools over distutils
 from setuptools import setup, find_packages
 import pathlib
 
@@ -16,7 +15,7 @@ setup(
     url="https://github.com/CongruentEngineeringToolbox/cet",
     author='CET developers',
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Engineers",
         "Topic :: Scientific/Engineering",
@@ -26,7 +25,7 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
     ],
     keywords="engineering, system engineering, congruent engineering",
-    packages=['cet'],
+    packages=find_packages(include=['cet', 'cet.*']),
     python_requires=">=3.10, <4",
     install_requires=[
         'numpy',

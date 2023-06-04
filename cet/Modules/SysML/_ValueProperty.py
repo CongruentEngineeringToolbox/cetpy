@@ -125,6 +125,17 @@ class ValueProperty:
         if self._axis_label is None:
             self._axis_label = name_2_axis_label(name)
 
+    def str(self, instance) -> str:
+        """Return formatted string of value."""
+        value = self.value(instance)
+        if isinstance(value, str):
+            return value
+        elif isinstance(value, (int, float)):
+            value, prefix = scale_value(self.value(instance))
+            return str(value) + ' ' + prefix + self.unit
+        else:
+            return str(value)
+
     def value(self, instance) -> Any:
         """Return the value property value with significant figure rounding."""
         value = self.value_raw(instance)
@@ -137,7 +148,7 @@ class ValueProperty:
         """Return the value property value without further modification."""
         return self.__get__(instance, None)
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner=None):
         if instance is None:
             return self
         name = self._name_instance
@@ -188,3 +199,49 @@ class ValueProperty:
     def __hash__(self):
         return super().__hash__()
     # endregion
+
+
+class ValuePrinter:
+    """Formatter for block Value Properties to display the property in the
+    truncated value form with unit of measure."""
+    __slots__ = ['_instance']
+
+    def __get__(self, instance, owner=None):
+        self._instance = instance
+        return self
+
+    def __getattribute__(self, name):
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            vp = getattr(type(self._instance), name)
+            if isinstance(vp, ValueProperty):
+                return vp.str(self._instance)
+            else:
+                return str(vp.fget(self._instance))
+
+
+class AggregateValueProperty(ValueProperty):
+    """An extension of the SysML ValueProperty class to return the sum of
+    the value property on the current block and all its contained parts."""
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        value = super().__get__(instance, owner)
+
+        if value is None:  # Make compatible for addition with parts' values
+            value = 0.
+
+        for p in instance.parts:
+            try:  # Try except should be faster than dir lookup.
+                part_value = p.__getattribute__(self._name)
+                if part_value is not None:
+                    value = value + part_value  # add non-mutable
+            except AttributeError:
+                pass
+
+        return value
+
+    def __get_self__(self, instance, owner=None):
+        return super().__get__(instance, owner)

@@ -1,3 +1,3 @@
 from cet.Modules.SysML._ValueProperty import ValueProperty, value_property, \
-    DeterminationTest
+    DeterminationTest, AggregateValueProperty, ValuePrinter
 from cet.Modules.SysML._Block import Block

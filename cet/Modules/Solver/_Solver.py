@@ -9,10 +9,16 @@ of the decentralised solver architecture.
 from typing import List
 
 
+from cet.Modules.SysML import ValuePrinter
+
+
 class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
+
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
                  '_name', 'parent', 'convergence_keys', '_tolerance']
+
+    print = ValuePrinter()
 
     def __init__(self, parent, tolerance: float):
         self._recalculate = False

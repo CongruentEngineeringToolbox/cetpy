@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import List
 
 from cet.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
-from cet.Modules.SysML import ValueProperty
+from cet.Modules.SysML import ValueProperty, ValuePrinter
 from cet.Modules.Solver import Solver
 
 
@@ -23,8 +23,10 @@ class Block:
     """SysML Block element."""
 
     __slots__ = ['_resetting', '_bool_parent_reset',  'determination_tests',
-                 'name', 'abbreviation', 'parent', '_tolerance',
+                 'name', 'abbreviation', '_parent', '_tolerance',
                  'parts', 'ports', 'requirements', 'solvers']
+
+    print = ValuePrinter()
 
     def __init__(self, name: str, abbreviation: str = None,
                  parent: Block = None, tolerance: float = 0) -> None:
@@ -32,6 +34,7 @@ class Block:
         self._resetting = False
         self._bool_parent_reset = True
         self.determination_tests = {}
+        self._parent = None
         # endregion
 
         # region Attributes
@@ -40,8 +43,6 @@ class Block:
             abbreviation = name_2_abbreviation(name)
         self.abbreviation = abbreviation
         self.parent = parent
-        if parent is not None and self not in parent.parts:
-            parent.parts += [self]
         # endregion
 
         # region References
@@ -56,11 +57,19 @@ class Block:
         self.tolerance = tolerance
         # endregion
 
-        # region Instance Passthrough to Value Properties
-        for vp, n in [(getattr(type(self), n), n) for n in self.__dir__()
-                      if isinstance(getattr(type(self), n), ValueProperty)]:
-            vp.__set_name__(self, n)
-        # endregion
+    # region Block References
+    @property
+    def parent(self) -> (Block, None):
+        return self._parent
+
+    @parent.setter
+    def parent(self, val: Block) -> None:
+        if val is None and self._parent is not None:
+            self._parent.parts.pop(self, None)
+        elif val is not None and self not in val.parts:
+            val.parts += [self]
+        self._parent = val
+    # endregion
 
     # region Solver Functions
     def reset(self, parent_reset: bool = None) -> None:

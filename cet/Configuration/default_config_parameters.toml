@@ -1,0 +1,7 @@
+# Description of default parameters for CET
+
+[tolerance]
+default = 1e-4
+unit = '-'
+type = 'float'
+description = 'Global solver tolerance.'

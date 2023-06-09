@@ -19,11 +19,18 @@ from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
     scale_value
 
 
-def value_property(func: Callable) -> ValueProperty:
-    """Decorator to create ValueProperties from getter functions."""
+def value_property(equation: str = None,
+                   determination_test: DeterminationTest = None
+                   ) -> Callable[[Callable], ValueProperty]:
+    """Decorator Factory to create ValueProperties from getter functions."""
 
-    prop = ValueProperty(fget=func)
-    return prop
+    def decorator(func: Callable) -> ValueProperty:
+        """Decorator to create a ValueProperty with metadata from getter."""
+        prop = ValueProperty(fget=func, equation=equation,
+                             determination_test=determination_test)
+        return prop
+
+    return decorator
 
 
 class UnitFloat(float):
@@ -49,9 +56,10 @@ class UnitFloat(float):
 class DeterminationTest:
     """Class to manage over- and under-determination of model inputs."""
 
-    def __init__(self, instance: object, properties: List[str] = None,
+    __slots__ = ['_num', 'auto_fix', 'properties']
+
+    def __init__(self, properties: List[str] = None,
                  num: int = 1, auto_fix: bool = True) -> None:
-        self._instance = instance
         self._num = num
         self.auto_fix = auto_fix
         if properties is None:
@@ -65,12 +73,12 @@ class DeterminationTest:
 
     @num.setter
     def num(self, val: int) -> None:
-        self._num = val
+        self._num = int(val)
 
-    def test(self, new: str = None) -> None:
+    def test(self, instance, new: str = None) -> None:
         """Test the determination of the instance. If auto fix is on,
         the test attempts to automatically fix it."""
-        n_actual = sum([self._instance.__getattribute__(n)._value is not None
+        n_actual = sum([getattr(type(instance), n).fixed(instance)
                         for n in self.properties])
         n_target = self._num
 
@@ -81,11 +89,12 @@ class DeterminationTest:
         elif n_actual > n_target:
             direction = 'over-'
             if self.auto_fix and self._num == 1:
-                [self._instance.__setattr__(n, None) for n in self.properties
-                 if n == new]
+                [instance.__setattr__(n, None) for n in self.properties
+                 if n != new]
                 # noinspection PyUnresolvedReferences
-                logging.info(f"Autocorrected {self._instance.name_display} "
+                logging.info(f"Autocorrected {instance.name_display} "
                              f"over-determination. {new} is the new input.")
+                return
             elif self.auto_fix:
                 amendment = ' Autofix failed.'
 
@@ -94,7 +103,7 @@ class DeterminationTest:
 
         # noinspection PyUnresolvedReferences
         logging.warning(
-            f"{self._instance.name_display} is {direction}determined. Of "
+            f"{instance.name_display} is {direction}determined. Of "
             f"{', '.join(self.properties)} {n_target} must be set. "
             f"Currently {n_actual} are set.{amendment}")
 
@@ -102,14 +111,19 @@ class DeterminationTest:
 class ValueProperty:
     """SysML ValueProperty which adds units of measure and error
     calculation."""
-    __slots__ = ['_name', '_name_instance', 'determination_test',
+    __slots__ = ['_name', '_name_instance', '_determination_test', 'equation',
                  '_unit', '_axis_label', 'fget', 'fset']
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
-                 fget: Callable = None, fset: Callable = None) -> None:
+                 fget: Callable = None, fset: Callable = None,
+                 equation: str = None,
+                 determination_test: DeterminationTest = None) -> None:
+        self._determination_test = None
         self._name = ''
-        self.determination_test = None
+        self._name_instance = ''
+        self.equation = equation
+        self.determination_test = determination_test
         self._unit = unit
         self._axis_label = axis_label
 
@@ -124,6 +138,8 @@ class ValueProperty:
             self._unit = name_2_unit(name)
         if self._axis_label is None:
             self._axis_label = name_2_axis_label(name)
+        # Rerun determination test setter when the name is known
+        self.determination_test = self._determination_test
 
     def str(self, instance) -> str:
         """Return formatted string of value."""
@@ -146,7 +162,7 @@ class ValueProperty:
 
     def value_raw(self, instance) -> Any:
         """Return the value property value without further modification."""
-        return self.__get__(instance, None)
+        return self.__get__(instance)
 
     def __get__(self, instance, owner=None):
         if instance is None:
@@ -166,7 +182,41 @@ class ValueProperty:
             instance.__setattr__(self._name_instance, value)
         else:
             self.fset(instance, value)
+        if self._determination_test is not None:
+            self._determination_test.test(instance, self._name)
         instance.reset()
+
+    def fixed(self, instance) -> bool:
+        """Return bool if value property is a fixed parameter for the given
+        instance."""
+        name = self._name_instance
+        if instance is None:
+            return False
+        elif name in instance.__slots__:
+            return instance.__getattribute__(name) is not None
+        else:
+            return instance.__dict__.get(name, None) is not None
+
+    @property
+    def determination_test(self) -> (DeterminationTest, None):
+        """Over- and Under-Determination Test that applies to this value
+        property."""
+        return self._determination_test
+
+    @determination_test.setter
+    def determination_test(self, val: (DeterminationTest, None)) -> None:
+        name = self._name
+        if name != '':  # init call, rerun this function in __set_name__
+            # Remove self from past test
+            if self._determination_test is not None:
+                try:
+                    self._determination_test.properties.remove(name)
+                except ValueError:  # Not in list.
+                    pass
+            # Add self to new test
+            if val is not None and name not in val.properties:
+                val.properties += [name]
+        self._determination_test = val
     # endregion
 
     # region Labelling

@@ -26,10 +26,12 @@ class Block:
                  'name', 'abbreviation', '_parent', '_tolerance',
                  'parts', 'ports', 'requirements', 'solvers']
 
+    __init_parameters__ = []
+
     print = ValuePrinter()
 
     def __init__(self, name: str, abbreviation: str = None,
-                 parent: Block = None, tolerance: float = 0) -> None:
+                 parent: Block = None, tolerance: float = 0, **kwargs) -> None:
         # region Solver Flags
         self._resetting = False
         self._bool_parent_reset = True

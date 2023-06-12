@@ -26,6 +26,7 @@ setup(
     ],
     keywords="engineering, system engineering, congruent engineering",
     packages=find_packages(include=['cet', 'cet.*']),
+    include_package_data=True,
     python_requires=">=3.10, <4",
     install_requires=[
         'numpy',

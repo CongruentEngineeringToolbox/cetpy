@@ -16,7 +16,7 @@ from typing import Any, Tuple, Callable, List
 import logging
 
 from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
-    scale_value
+    scale_value, name_2_display
 
 
 def value_property(equation: str = None,
@@ -108,11 +108,29 @@ class DeterminationTest:
             f"Currently {n_actual} are set.{amendment}")
 
 
+class ValuePropertyDoc:
+    """Simple Descriptor to pass a more detailed doc string."""
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        elif instance.fget is not None:
+            return instance.fget.__doc__
+        else:
+            return instance.name_display + f"[{instance.unit}]."
+
+    def __set__(self, instance, value: str) -> None:
+        if instance is not None and instance.fget is not None:
+            instance.fget.__doc__ = value
+
+
 class ValueProperty:
     """SysML ValueProperty which adds units of measure and error
     calculation."""
     __slots__ = ['_name', '_name_instance', '_determination_test', 'equation',
                  '_unit', '_axis_label', 'fget', 'fset']
+
+    __doc__ = ValuePropertyDoc()
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
@@ -124,7 +142,17 @@ class ValueProperty:
         self._name_instance = ''
         self.equation = equation
         self.determination_test = determination_test
+        if (unit is None and fget is not None
+                and fget.__doc__ is not None and '].' in fget.__doc__):
+            doc = fget.__doc__
+            unit = doc[doc.find('[') + 1: doc.find('].')]
         self._unit = unit
+        if (axis_label is None and fget is not None
+                and fget.__doc__ is not None
+                and '..cet:axis_label:' in fget.__doc__):
+            doc = fget.__doc__
+            axis_label = doc[
+                doc.find('..cet:axis_label:') + 17: doc.find('\n')].strip()
         self._axis_label = axis_label
 
         self.fget = fget
@@ -220,6 +248,11 @@ class ValueProperty:
     # endregion
 
     # region Labelling
+    @property
+    def name_display(self) -> str:
+        """Return the display formatted name of the value property."""
+        return name_2_display(self._name)
+
     @property
     def unit(self) -> str:
         """Unit of measure."""

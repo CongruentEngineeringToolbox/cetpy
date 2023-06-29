@@ -53,8 +53,18 @@ class MaterialSkeleton:
         """
         raise NotImplementedError
 
-    def k(self, t: float | np.ndarray | None = None) -> float | np.ndarray:
+    def thermal_conductivity(self, t: float | np.ndarray | None = None) -> \
+            float | np.ndarray:
         """Return material thermal conductivity from temperature [kg/m^3].
+
+        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        is assumed.
+        """
+        raise NotImplementedError
+
+    def thermal_expansion(self, t: float | np.ndarray | None = None
+                          ) -> float | np.ndarray:
+        """Return material thermal expansion coefficient from temperature [-].
 
         If no temperature is specified. Room Temperature 298.15 K (25 deg C)
         is assumed.

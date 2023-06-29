@@ -31,5 +31,8 @@ setup(
     install_requires=[
         'numpy',
         'pandas',
+        'pickle',
+        'CoolProp',
+        'tomli',
     ],
 )

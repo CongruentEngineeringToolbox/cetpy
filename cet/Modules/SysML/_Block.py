@@ -25,9 +25,11 @@ class Block:
 
     __slots__ = ['_resetting', '_bool_parent_reset',
                  'name', 'abbreviation', '_parent', '_tolerance', '_logger',
-                 'parts', 'ports', 'requirements', 'solvers']
+                 'parts', 'ports', 'requirements', 'solvers',
+                 '_get_init_parameters', '__init_kwargs__']
 
     __init_parameters__ = []
+    __init_parts__ = []
 
     print = ValuePrinter()
 
@@ -136,6 +138,8 @@ class Block:
                 self._logger.log(
                     15, f"{key} loaded as {key_load} from {source}")
             return val
+        self._get_init_parameters = parameter
+        self.__init_kwargs__ = kwargs
 
         for key in self.__init_parameters__:
             self.__setattr__('_' + key, parameter(key))
@@ -147,6 +151,14 @@ class Block:
         self.ports = []
         self.requirements = []
         self.solvers: List[Solver] = []
+
+        # region Part Initialisation
+        for key in self.__init_parts__:
+            try:
+                self.__setattr__(key, parameter(key + '_model'))
+            except KeyError:
+                self.__setattr__(key, None)
+        # endregion
         # endregion
 
         # region Tolerance
@@ -164,7 +176,10 @@ class Block:
     @parent.setter
     def parent(self, val: Block) -> None:
         if val is None and self._parent is not None:
-            self._parent.parts.pop(self, None)
+            try:
+                self._parent.parts.remove(self)
+            except ValueError:
+                pass
         elif val is not None and self not in val.parts:
             val.parts += [self]
         self._parent = val

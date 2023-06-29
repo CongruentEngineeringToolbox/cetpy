@@ -1,1 +1,1 @@
-include cet/*/*.toml
+include cetpy/*/*.toml

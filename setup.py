@@ -7,12 +7,12 @@ here = pathlib.Path(__file__).parent.resolve()
 long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
-    name='cet',
+    name='cetpy',
     version='0.0.1',
     description='Congruent Engineering Toolbox',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/CongruentEngineeringToolbox/cet",
+    url="https://github.com/CongruentEngineeringToolbox/cetpy",
     author='CET developers',
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
@@ -25,7 +25,7 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
     ],
     keywords="engineering, system engineering, congruent engineering",
-    packages=find_packages(include=['cet', 'cet.*']),
+    packages=find_packages(include=['cetpy', 'cetpy.*']),
     include_package_data=True,
     python_requires=">=3.10, <4",
     install_requires=[

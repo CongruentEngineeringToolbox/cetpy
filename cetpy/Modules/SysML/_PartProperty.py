@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from cet.Modules.Utilities.Labelling import name_2_display
+from cetpy.Modules.Utilities.Labelling import name_2_display
 
 
 class PartPropertyDoc:

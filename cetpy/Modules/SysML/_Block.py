@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from typing import List
 
-import cet
-from cet.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
-from cet.Modules.SysML import ValueProperty, ValuePrinter
-from cet.Modules.Solver import Solver
+import cetpy
+from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, \
+    name_2_display
+from cetpy.Modules.SysML import ValuePrinter
+from cetpy.Modules.Solver import Solver
 
 
 class Block:
@@ -37,8 +38,8 @@ class Block:
                  parent: Block = None, tolerance: float = None, **kwargs
                  ) -> None:
         # region Logging
-        if cet.active_session is not None:
-            self._logger = cet.active_session.logger
+        if cetpy.active_session is not None:
+            self._logger = cetpy.active_session.logger
         else:
             self._logger = None
         # endregion
@@ -57,7 +58,7 @@ class Block:
         self.parent = parent
 
         # region Config Loading
-        session = cet.active_session
+        session = cetpy.active_session
 
         def get_parent_name_list(block: Block) -> List[str]:
             """Return list of names of parent objects."""
@@ -86,7 +87,7 @@ class Block:
                      type_name.find('Modules') + 8:-2].split('.')[:-2]).lower()
         ]
 
-        config_keys = cet.active_session.config_manager.config_keys
+        config_keys = cetpy.active_session.config_manager.config_keys
 
         def parameter(key: str):
             """Return parameter setting for a given key with prioritisation.
@@ -164,7 +165,7 @@ class Block:
         # region Tolerance
         self._tolerance = 0
         if tolerance is None:
-            tolerance = cet.active_session.parameter('tolerance')
+            tolerance = cetpy.active_session.parameter('tolerance')
         self.tolerance = tolerance
         # endregion
 

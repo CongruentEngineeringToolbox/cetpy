@@ -9,7 +9,7 @@ CoolProp Package.
 import numpy as np
 from CoolProp.CoolProp import PropsSI, PhaseSI
 
-from cet.Modules.Fluid import FluidSkeleton
+from cetpy.Modules.Fluid import FluidSkeleton
 
 
 class FluidCoolProp(FluidSkeleton):

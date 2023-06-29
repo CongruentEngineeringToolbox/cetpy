@@ -8,7 +8,7 @@ This file specifies an implementation of a Material with given parameters.
 from typing import List
 import numpy as np
 
-from cet.Modules.Material._MaterialSkeleton import MaterialSkeleton
+from cetpy.Modules.Material._MaterialSkeleton import MaterialSkeleton
 
 
 class MaterialGiven(MaterialSkeleton):

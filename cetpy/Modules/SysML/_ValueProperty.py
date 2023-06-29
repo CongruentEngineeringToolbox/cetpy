@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Tuple, Callable, List
 import logging
 
-from cet.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
+from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
     scale_value, name_2_display
 
 
@@ -149,10 +149,10 @@ class ValueProperty:
         self._unit = unit
         if (axis_label is None and fget is not None
                 and fget.__doc__ is not None
-                and '..cet:axis_label:' in fget.__doc__):
+                and '..cetpy:axis_label:' in fget.__doc__):
             doc = fget.__doc__
             axis_label = doc[
-                doc.find('..cet:axis_label:') + 17: doc.find('\n')].strip()
+                doc.find('..cetpy:axis_label:') + 17: doc.find('\n')].strip()
         self._axis_label = axis_label
 
         self.fget = fget

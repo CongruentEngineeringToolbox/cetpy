@@ -1,5 +1,5 @@
-numpy~=1.24.3
-tomli~=2.0.1
-setuptools~=67.7.2
-CoolProp~=6.4.3.post1
-pandas~=2.0.1
+numpy>=1.24.3
+tomli>=2.0.1
+setuptools>=68.0
+CoolProp>=6.4.3.post1
+pandas>=2.0.1

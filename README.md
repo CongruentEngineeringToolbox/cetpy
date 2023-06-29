@@ -8,5 +8,5 @@ logic.
 This tool is not released on PyPI. Instead install it from git directly:
 
 ```bash
-pip install git+https://github.com/CongruentEngineeringToolbox/cet.git
+pip install git+https://github.com/CongruentEngineeringToolbox/cetpy.git
 ```

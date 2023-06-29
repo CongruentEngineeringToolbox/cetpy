@@ -9,7 +9,7 @@ of the decentralised solver architecture.
 from typing import List
 
 
-from cet.Modules.SysML import ValuePrinter
+from cetpy.Modules.SysML import ValuePrinter
 
 
 class Solver:

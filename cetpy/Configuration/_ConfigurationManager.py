@@ -15,8 +15,8 @@ import numpy as np
 import pickle
 import tomli
 
-import cet
-import cet.Configuration
+import cetpy
+import cetpy.Configuration
 
 
 def get_absolute_path(file_path: str, additional_locations: List[str] = None
@@ -25,14 +25,14 @@ def get_absolute_path(file_path: str, additional_locations: List[str] = None
 
     A valid absolute path is prioritised above all else. Second the
     additional locations in order of occurrence, and lastly the CET config
-    locations from cet.Configurations in order of occurrence.
+    locations from cetpy.Configurations in order of occurrence.
     """
     if isfile(abspath(file_path)):
         return abspath(file_path)
     else:
 
         for location in (additional_locations +
-                         cet.Configuration.config_locations):
+                         cetpy.Configuration.config_locations):
             abs_path = join(location, file_path)
             if isfile(abs_path):
                 return abs_path
@@ -88,7 +88,7 @@ def get_parameter_dict() -> dict:
                 target_dict.update(load_config(join(file_path, item)))
         return target_dict
 
-    for loc in cet.Configuration.module_locations:
+    for loc in cetpy.Configuration.module_locations:
         out.update(load_parameters_from_dir(loc))
     return out
 

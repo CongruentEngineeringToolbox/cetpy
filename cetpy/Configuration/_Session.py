@@ -11,7 +11,7 @@ from importlib import reload
 from os.path import join, split, dirname
 import sys
 
-from cet.Configuration import ConfigurationManager
+from cetpy.Configuration import ConfigurationManager
 
 
 class Session:
@@ -102,7 +102,7 @@ class Session:
         else:
             name = self.name
 
-        handler = logging.FileHandler(join(directory, 'cet.log'),
+        handler = logging.FileHandler(join(directory, 'cetpy.log'),
                                       mode='w')
         handler.setFormatter(formatter)
         handler.setLevel(log_level)

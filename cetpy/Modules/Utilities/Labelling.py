@@ -25,7 +25,7 @@ def name_2_abbreviation(name: str) -> str:
 
 def name_2_display(name: str) -> str:
     """Return a display formatted version of a block name."""
-    return ' '.join([w.title() if w.islower() else w for w in name.split()])
+    return ' '.join([w.title() if w.islower() else w for w in name.split('_')])
 
 
 # standard units, keys are the trigger and values the unit string

@@ -12,7 +12,7 @@ SysML Documentation:
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Any
 
 import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, \
@@ -24,13 +24,16 @@ from cetpy.Modules.Solver import Solver
 class Block:
     """SysML Block element."""
 
-    __slots__ = ['_resetting', '_bool_parent_reset',
-                 'name', 'abbreviation', '_parent', '_tolerance', '_logger',
+    __slots__ = ['_resetting', 'name', 'abbreviation', '_parent',
+                 '_tolerance', '_logger',
                  'parts', 'ports', 'requirements', 'solvers',
-                 '_get_init_parameters', '__init_kwargs__']
+                 '_get_init_parameters', '__init_kwargs__', '__dict__']
 
     __init_parameters__ = []
     __init_parts__ = []
+    _reset_dict = {}
+    _hard_reset_dict = {}
+    _bool_parent_reset = True
 
     print = ValuePrinter()
 
@@ -46,7 +49,6 @@ class Block:
 
         # region Solver Flags
         self._resetting = False
-        self._bool_parent_reset = True
         self._parent = None
         # endregion
 
@@ -143,7 +145,9 @@ class Block:
         self.__init_kwargs__ = kwargs
 
         for key in self.__init_parameters__:
-            self.__setattr__('_' + key, parameter(key))
+            self._resetting = True  # Avoid unnecessary resets.
+            getattr(type(self), key).__set__(self, parameter(key))
+            self._resetting = False
         # endregion
         # endregion
 
@@ -184,6 +188,24 @@ class Block:
         elif val is not None and self not in val.parts:
             val.parts += [self]
         self._parent = val
+
+    def __deep_getattr__(self, name: str) -> Any:
+        """Get value from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return self.__getattribute__(name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_getattr__(
+                '.'.join(name_split[1:]))
+
+    def __deep_setattr__(self, name: str, val: Any) -> None:
+        """Set value on block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return self.__setattr__(name, val)
+        else:
+            name_split = name.split('.')
+            self.__getattribute__(name_split[0]).__deep_setattr__(
+                '.'.join(name_split[1:]), val)
     # endregion
 
     # region Solver Functions
@@ -196,6 +218,10 @@ class Block:
             for s in self.solvers:
                 s.reset(parent_reset=False)
 
+            # Reset all local attributes to the desired reset value
+            for key, val in self._reset_dict.items():
+                self.__setattr__(key, val)
+
             # Reset parent instance if desired:
             if parent_reset is None:
                 parent_reset = self._bool_parent_reset
@@ -203,6 +229,19 @@ class Block:
                 self.parent.reset()
 
             self._resetting = False
+
+    def hard_reset(self, convergence_reset: bool = False) -> None:
+        """Reset all blocks including solver flags and intermediate values.
+
+        This should only be used to get the program unstuck as it undermines
+        recursion stops and deletes any progress made.
+        """
+        self._resetting = False
+        for key, val in self._hard_reset_dict.items():
+            self.__setattr__(key, val)
+        for solver in self.solvers:
+            solver.hard_reset(convergence_reset)
+        self.reset()
 
     @property
     def solved_self(self) -> bool:
@@ -240,8 +279,10 @@ class Block:
         self._tolerance = val
         for p in [p for p in self.parts if p.tolerance > val]:
             p.tolerance = val
-        for s in [s for s in self.parts if s.tolerance > val]:
+        for s in [s for s in self.solvers if s.tolerance > val]:
             s.tolerance = val
+        for p in [p for p in self.ports if p.tolerance > val]:
+            p.tolerance = val
     # endregion
 
     # region User Output

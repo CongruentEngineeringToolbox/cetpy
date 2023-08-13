@@ -11,6 +11,7 @@ from importlib import reload
 from os.path import join, split, dirname
 import sys
 
+import cetpy.Configuration
 from cetpy.Configuration import ConfigurationManager
 
 
@@ -62,6 +63,7 @@ class Session:
         """Refresh this session. Does not restart logging."""
         self.config_manager.reset()
         self.config_manager.load()
+        cetpy.Configuration.refresh_module_dict()
 
     def restart(self) -> None:
         """Restart this session. This both refreshes the config files and

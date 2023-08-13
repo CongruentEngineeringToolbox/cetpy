@@ -12,22 +12,30 @@ SysML Documentation:
 
 from __future__ import annotations
 
-from typing import Any, Tuple, Callable, List
+from typing import Any, Tuple, Callable, List, Iterable, Sized
 import logging
+import numpy as np
 
 from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
     scale_value, name_2_display
+from cetpy.Modules.Utilities.InputValidation import validate_input
 
 
 def value_property(equation: str = None,
-                   determination_test: DeterminationTest = None
+                   determination_test: DeterminationTest = None,
+                   necessity_test: float = 0.1,
+                   permissible_list: None | List | Tuple = None,
+                   permissible_types_list: None | type | List = None
                    ) -> Callable[[Callable], ValueProperty]:
     """Decorator Factory to create ValueProperties from getter functions."""
 
     def decorator(func: Callable) -> ValueProperty:
         """Decorator to create a ValueProperty with metadata from getter."""
         prop = ValueProperty(fget=func, equation=equation,
-                             determination_test=determination_test)
+                             determination_test=determination_test,
+                             necessity_test=necessity_test,
+                             permissible_list=permissible_list,
+                             permissible_types_list=permissible_types_list)
         return prop
 
     return decorator
@@ -127,21 +135,33 @@ class ValuePropertyDoc:
 class ValueProperty:
     """SysML ValueProperty which adds units of measure and error
     calculation."""
-    __slots__ = ['_name', '_name_instance', '_determination_test', 'equation',
-                 '_unit', '_axis_label', 'fget', 'fset']
+    __slots__ = ['_name', '_name_instance', '_name_instance_reset',
+                 '_determination_test', '_necessity_test', 'equation',
+                 '_unit', '_axis_label', 'fget', 'fset', 'fdel',
+                 '_permissible_list', '_permissible_types_list']
 
     __doc__ = ValuePropertyDoc()
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
                  fget: Callable = None, fset: Callable = None,
-                 equation: str = None,
-                 determination_test: DeterminationTest = None) -> None:
+                 fdel: Callable = None, equation: str = None,
+                 determination_test: DeterminationTest = None,
+                 necessity_test: float = 0.1,
+                 permissible_list: None | List | Tuple = None,
+                 permissible_types_list: None | type | List = None) -> None:
         self._determination_test = None
+        self._necessity_test = None
+        self._permissible_list = None
+        self._permissible_types_list = None
         self._name = ''
         self._name_instance = ''
+        self._name_instance_reset = ''
         self.equation = equation
         self.determination_test = determination_test
+        self.necessity_test = necessity_test
+        self.permissible_list = permissible_list
+        self.permissible_types_list = permissible_types_list
         if (unit is None and fget is not None
                 and fget.__doc__ is not None and '].' in fget.__doc__):
             doc = fget.__doc__
@@ -157,17 +177,41 @@ class ValueProperty:
 
         self.fget = fget
         self.fset = fset
+        self.fdel = fdel
+
+    # region Decorators
+    def getter(self, fget: Callable) -> ValueProperty:
+        prop = self
+        prop.fget = fget
+        return prop
+
+    # ToDo: Figure out type hinting for read access
+    def setter(self, fset: Callable) -> ValueProperty:
+        prop = self
+        prop.fset = fset
+        return prop
+
+    def deleter(self, fdel: Callable) -> ValueProperty:
+        prop = self
+        prop.fdel = fdel
+        return prop
+    # endregion
 
     # region Getters and Setters
-    def __set_name__(self, instance, name):
+    def __set_name__(self, cls, name):
         self._name = name
         self._name_instance = '_' + name
+        self._name_instance_reset = self._name_instance + '_reset'
         if self._unit is None:
             self._unit = name_2_unit(name)
         if self._axis_label is None:
             self._axis_label = name_2_axis_label(name)
         # Rerun determination test setter when the name is known
         self.determination_test = self._determination_test
+
+    def name(self) -> str:
+        """Value Property Name"""
+        return self._name
 
     def str(self, instance) -> str:
         """Return formatted string of value."""
@@ -176,7 +220,12 @@ class ValueProperty:
             return value
         elif isinstance(value, (int, float)):
             value, prefix = scale_value(self.value(instance))
-            return str(value) + ' ' + prefix + self.unit
+            unit = self.unit
+            if any([str(i) in unit for i in range(10)]):
+                unit = prefix + '(' + unit + ')'
+            else:
+                unit = prefix + unit
+            return str(value) + ' ' + unit
         else:
             return str(value)
 
@@ -196,23 +245,65 @@ class ValueProperty:
         if instance is None:
             return self
         name = self._name_instance
-        if name in instance.__slots__:
+
+        try:
             value = instance.__getattribute__(name)
-        else:
-            value = instance.__dict__.get(name, None)
+        except AttributeError:
+            value = None
+
         if value is not None or self.fget is None:
             return value
         else:
             return self.fget(instance)
 
     def __set__(self, instance, value) -> None:
+        try:
+            val_initial = instance.__getattribute__(self._name_instance_reset)
+        except AttributeError:
+            val_initial = None
+        value = validate_input(value, self.permissible_types_list,
+                               self.permissible_list, self._name)
         if self.fset is None:
             instance.__setattr__(self._name_instance, value)
         else:
             self.fset(instance, value)
+
         if self._determination_test is not None:
             self._determination_test.test(instance, self._name)
-        instance.reset()
+
+        if self.__reset_necessary__(instance, value, val_initial):
+            instance.__setattr__(self._name_instance_reset, value)
+            instance.reset()
+
+    def __reset_necessary__(self, instance, value, val_initial=None) -> bool:
+        """Return bool if a reset should be performed on an instance if the
+        initial value is changed to value.
+        """
+        necessity_test = self.necessity_test
+        reset = True
+        if necessity_test >= 0:
+            same = (value == val_initial)
+            if isinstance(same, Iterable):
+                same = all(same)
+            if same:
+                reset = False
+            elif type(value) == type(val_initial):
+                if isinstance(value, int | float):
+                    reset = not np.isclose(
+                        value, val_initial,
+                        rtol=instance.tolerance * necessity_test, atol=0)
+                if isinstance(value, Iterable | Sized) and (
+                        len(value) == len(val_initial)):
+                    reset = not all(np.isclose(
+                        value, val_initial,
+                        rtol=instance.tolerance * necessity_test, atol=0))
+        return reset
+
+    def __delete__(self, instance):
+        if self.fdel is not None:
+            self.fdel(instance)
+        else:
+            delattr(instance, self._name_instance)
 
     def fixed(self, instance) -> bool:
         """Return bool if value property is a fixed parameter for the given
@@ -245,6 +336,77 @@ class ValueProperty:
             if val is not None and name not in val.properties:
                 val.properties += [name]
         self._determination_test = val
+
+    @property
+    def necessity_test(self) -> float:
+        """Reset necessity test multiplier. If this value property of an
+        instance is changed by a larger relative factor than this multiplier
+        times the instance tolerance, a reset is called. This multiplier is
+        intended to counteract the error sensitivity of an input value.
+
+        The default is 0.1, which is moderately conservative for a large number
+        of models. In effect this means, that if a block is set to a
+        tolerance of 1e-3, a 1e-4 tolerance is applied to the inputs.
+
+        Evaluating the error sensitivity and calibrating this value can
+        significantly speed up models.
+
+        This setter does not automatically call a reset. The user has to
+        manually reset all relevant models after changing this value.
+        """
+        return self._necessity_test
+
+    @necessity_test.setter
+    def necessity_test(self, val: float) -> None:
+        if not isinstance(val, float | int) and val >= 0:
+            raise ValueError("The necessity test multiplier must be a "
+                             "positive float. Set to 0 to disable.")
+        self._necessity_test = val
+
+    @property
+    def permissible_list(self) -> None | List | Tuple:
+        """List of permissible values for the value property. Set to None to
+        disable. Set to a list of approved values, particularly useful for
+        string switches. Or set to a tuple of length two with integer or
+        float lower and upper limits. None represents positive or negative
+        infinity.
+        """
+        return self._permissible_list
+
+    @permissible_list.setter
+    def permissible_list(self, val: None | List | Tuple) -> None:
+        if not (val is None or isinstance(val, List)
+                or (isinstance(val, Tuple) and len(val) == 2
+                    and all([isinstance(v, None | float | int) for v in val]))
+                ):
+            raise ValueError("The permissible list must be None or a "
+                             "List or a Tuple of length 2 with float / None.")
+        if isinstance(val, Tuple):
+            if val[0] is None:
+                val = (-np.inf, val[1])
+            if val[1] is None:
+                val = (val[0], np.inf)
+            if val[1] < val[0]:
+                raise ValueError("The allowed minimum limit is above the "
+                                 "upper limit. The requirement cannot be "
+                                 "fulfilled.")
+        self._permissible_list = val
+
+    @property
+    def permissible_types_list(self) -> None | type | List[type]:
+        """List of permissible types for input values. New inputs are tested
+        against this list and an error is raised if it cannot be satisfied.
+        Minor conversions are attempted automatically. These include float |
+        int to bool and vice-versa or list to np array.
+        """
+        return self._permissible_types_list
+
+    @permissible_types_list.setter
+    def permissible_types_list(self, val: None | type | List[type]) -> None:
+        if not isinstance(val, None | type | List):
+            raise ValueError("The permissible types list must be None, "
+                             "a type or a List of allowed types.")
+        self._permissible_types_list = val
     # endregion
 
     # region Labelling
@@ -270,17 +432,6 @@ class ValueProperty:
     @axis_label.setter
     def axis_label(self, val: str) -> None:
         self._axis_label = val
-    # endregion
-
-    # region Pickling
-    def __getstate__(self) -> Tuple:
-        return self._name, self._name_instance, self._unit, self._axis_label
-
-    def __setstate__(self, state: Tuple) -> None:
-        self._name, self._name_instance, self._unit, self._axis_label = state
-
-    def __hash__(self):
-        return super().__hash__()
     # endregion
 
 

@@ -6,8 +6,7 @@ This file specifies the base Solver class which defines the base structure
 of the decentralised solver architecture.
 """
 
-from typing import List
-
+from typing import List, Any
 
 from cetpy.Modules.SysML import ValuePrinter
 
@@ -20,8 +19,8 @@ class Solver:
 
     print = ValuePrinter()
 
-    def __init__(self, parent, tolerance: float):
-        self._recalculate = False
+    def __init__(self, parent, tolerance: float = None):
+        self._recalculate = True
         self._calculating = False
         self._resetting = False
         self._hold = 0
@@ -30,6 +29,8 @@ class Solver:
         if parent is not None and self not in parent.solvers:
             parent.solvers += [self]
         self._tolerance = 0
+        if tolerance is None and self.parent is not None:
+            tolerance = self.parent.tolerance
         self.tolerance = tolerance
 
     # region Interface Functions
@@ -57,6 +58,24 @@ class Solver:
         if convergence_reset:
             for key in self.convergence_keys:
                 self.__setattr__(key, None)
+
+    def __deep_getattr__(self, name: str) -> Any:
+        """Get value from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return self.__getattribute__(name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_getattr__(
+                '.'.join(name_split[1:]))
+
+    def __deep_setattr__(self, name: str, val: Any) -> None:
+        """Set value on block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return self.__setattr__(name, val)
+        else:
+            name_split = name.split('.')
+            self.__getattribute__(name_split[0]).__deep_setattr__(
+                '.'.join(name_split[1:]), val)
     # endregion
 
     # region Solver Flags

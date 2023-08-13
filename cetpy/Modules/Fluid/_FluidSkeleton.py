@@ -75,7 +75,7 @@ class FluidSkeleton:
         raise NotImplementedError
 
     def phase(self, t: float | np.ndarray, p: float | np.ndarray
-              ) -> float | np.ndarray:
+              ) -> str | np.ndarray:
         """Return fluid phase from temperature and pressure."""
         raise NotImplementedError
 
@@ -112,7 +112,7 @@ class FluidSkeleton:
            ) -> float | np.ndarray:
         """Return fluid kinematic viscosity from temperature and
         pressure [m^2/s]."""
-        return self.mu(t, p) * self.rho(t, p)
+        return self.mu(t, p) / self.rho(t, p)
 
     def c(self, t: float | np.ndarray, p: float | np.ndarray
           ) -> float | np.ndarray:

@@ -75,7 +75,7 @@ class FluidCoolProp(FluidSkeleton):
         return PropsSI('Pcrit', self.cpid)
 
     def phase(self, t: float | np.ndarray, p: float | np.ndarray
-              ) -> float | np.ndarray:
+              ) -> str | np.ndarray:
         return PhaseSI('T', t, 'P', p, self.cpid)
 
     def t_rhoh(self, rho: float | np.ndarray, h: float | np.ndarray

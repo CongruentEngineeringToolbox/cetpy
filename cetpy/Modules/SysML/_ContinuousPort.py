@@ -37,7 +37,8 @@ class ContinuousPort(SML.Port):
                          name=name,
                          flow_item=flow_item,
                          upstream_dict_name=upstream_dict_name,
-                         downstream_dict_name=downstream_dict_name)
+                         downstream_dict_name=downstream_dict_name,
+                         tolerance=tolerance)
 
     # region System References
     @SML.Port.upstream.setter

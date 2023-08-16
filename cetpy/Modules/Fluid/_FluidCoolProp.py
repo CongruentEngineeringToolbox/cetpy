@@ -108,7 +108,8 @@ class FluidCoolProp(FluidSkeleton):
 
     def kappa(self, t: float | np.ndarray, p: float | np.ndarray
               ) -> float | np.ndarray:
-        raise NotImplementedError
+        return PropsSI('ISENTROPIC_EXPANSION_COEFFICIENT', 'T', t, 'P', p,
+                       self.cpid)
 
     def m(self) -> float | np.ndarray:
-        raise NotImplementedError
+        return PropsSI('M', self.cpid)

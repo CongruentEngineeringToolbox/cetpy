@@ -118,5 +118,6 @@ class Session:
         logger.setLevel(log_level)
         logger.addHandler(handler)
         logger.addHandler(handler_console)
+        logger.propagate = False
         logging.captureWarnings(False)
         self.logger = logger

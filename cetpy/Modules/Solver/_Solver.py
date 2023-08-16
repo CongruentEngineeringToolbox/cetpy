@@ -9,13 +9,14 @@ of the decentralised solver architecture.
 from typing import List, Any
 
 from cetpy.Modules.SysML import ValuePrinter
+from cetpy.Modules.Report import ReportSolver
 
 
 class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 '_name', 'parent', 'convergence_keys', '_tolerance']
+                 'parent', 'convergence_keys', '_tolerance', 'report']
 
     print = ValuePrinter()
 
@@ -32,14 +33,9 @@ class Solver:
         if tolerance is None and self.parent is not None:
             tolerance = self.parent.tolerance
         self.tolerance = tolerance
+        self.report = ReportSolver(parent=self)
 
     # region Interface Functions
-    def __set_name__(self, instance, name):
-        self._name = name
-        self.parent = instance
-        if self not in instance.solvers:
-            instance.solvers += [self]
-
     def reset(self, parent_reset: bool = True) -> None:
         """Tell the solver to resolve before the next value output."""
         if not self._resetting:

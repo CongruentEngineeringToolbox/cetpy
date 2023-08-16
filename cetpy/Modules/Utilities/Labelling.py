@@ -37,6 +37,7 @@ standard_units = {
     'prandtl': '-',
     'dt': 'K',
     'dh': 'J/kg',
+    'dmdot': 'kg/s',
     'angle': '-',
     'gamma': '-',
     'kappa': '-',
@@ -226,7 +227,7 @@ def unit_2_baseSI(unit: str) -> str:
 
 
 standard_unit_magnitude_abbreviations = [
-    'E', 'P', 'T', 'G', 'M', 'k', 'h', 'da', '', 'd', 'c', 'm', 'mu', 'n',
+    'E', 'P', 'T', 'G', 'M', 'k', 'h', 'da', '', 'd', 'c', 'm', 'µ', 'n',
     'p', 'f'
 ]
 standard_unit_magnitude_long_form = [
@@ -241,7 +242,10 @@ standard_unit_magnitudes = np.array([
 
 def scale_value(value: float) -> (float, str):
     """Apply base 3 scaling prefixes to a value and return new value/prefix."""
-    index_min = np.where((value > standard_unit_magnitudes))[0][0]
+    if value == 0:
+        index_min = 8
+    else:
+        index_min = np.where((abs(value) > standard_unit_magnitudes))[0][0]
     if index_min in [6, 7, 9, 10]:  # restrict to base 3
         index_min = 8
     value = value / standard_unit_magnitudes[index_min]

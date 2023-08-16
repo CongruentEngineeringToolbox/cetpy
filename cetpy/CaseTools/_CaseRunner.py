@@ -17,6 +17,7 @@ from traceback import format_tb
 import cetpy.Configuration
 import cetpy.Modules.SysML
 import cetpy.Modules.Solver
+import cetpy.CaseTools
 
 
 class CaseSolver(cetpy.Modules.Solver.Solver):
@@ -60,8 +61,6 @@ class CaseRunner(cetpy.Modules.SysML.Block):
 
     module = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=[type(cetpy.Modules.SysML.Block), str])
-    input_df = cetpy.Modules.SysML.ValueProperty(
-        permissible_types_list=pd.DataFrame)
     save_instances = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=bool)
     catch_errors = cetpy.Modules.SysML.ValueProperty(
@@ -72,7 +71,7 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         permissible_types_list=[list, type(None)])
 
     __init_parameters__ = cetpy.Modules.SysML.Block.__init_parameters__ + [
-        'module', 'input_df', 'save_instances', 'catch_errors',
+        'module', 'save_instances', 'catch_errors',
         'additional_module_kwargs', 'output_properties'
     ]
 
@@ -85,9 +84,12 @@ class CaseRunner(cetpy.Modules.SysML.Block):
                  save_instances: bool = False,
                  catch_errors: bool = True,
                  additional_module_kwargs: dict = None,
-                 output_properties: List[str] = None, **kwargs):
-        super().__init__(kwargs.pop('name', 'case_runer'),
-                         module=module, input_df=input_df,
+                 output_properties: List[str] = None,
+                 method: str = 'direct',
+                 sub_method: str | None = None,
+                 n_cases: int = 1, **kwargs):
+        super().__init__(kwargs.pop('name', 'case_runner'),
+                         module=module,
                          save_instances=save_instances,
                          catch_errors=catch_errors,
                          additional_module_kwargs=additional_module_kwargs,
@@ -97,11 +99,9 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         self._module_instances = None
         self._instance = None
         self.case_solver = CaseSolver(parent=self)
-
-    @property
-    def input_keys(self) -> List[str]:
-        """List of keys in input_df."""
-        return self.input_df.keys()
+        self.case_generator = cetpy.CaseTools.CaseGenerator(
+            input_df=input_df, method=method, sub_method=sub_method,
+            n_cases=n_cases)
 
     @module.setter
     def module(self, val: cetpy.Modules.SysML.Block | str) -> None:
@@ -109,6 +109,16 @@ class CaseRunner(cetpy.Modules.SysML.Block):
             self._module = cetpy.Configuration.get_module(val)
         else:
             self._module = val
+
+    @property
+    def input_df(self) -> pd.DataFrame:
+        """Case Runner input dataframe. Direct pass through of
+        CaseGenerator.input_df setter and CaseGenerator.case_df getter."""
+        return self.case_generator.case_df
+
+    @input_df.setter
+    def input_df(self, val: pd.DataFrame) -> None:
+        self.case_generator.input_df = val
 
     @property
     def output_df(self) -> pd.DataFrame:
@@ -141,7 +151,8 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         if kwargs is None:
             kwargs = {}
 
-        for col in [c for c in case._fields if c in self.input_keys]:
+        for col in [c for c in case._fields
+                    if c in self.case_generator.input_keys]:
             kwargs.update({col: getattr(case, col)})
 
         # noinspection PyPropertyAccess

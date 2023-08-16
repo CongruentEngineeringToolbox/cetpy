@@ -19,6 +19,7 @@ from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, \
     name_2_display
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Solver import Solver
+from cetpy.Modules.Report import Report
 
 
 class Block:
@@ -156,6 +157,7 @@ class Block:
         self.ports = []
         self.requirements = []
         self.solvers: List[Solver] = []
+        self.report = Report(parent=self)
 
         # region Part Initialisation
         for key in self.__init_parts__:
@@ -206,6 +208,9 @@ class Block:
             name_split = name.split('.')
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
+
+    def __call__(self, *args, **kwargs) -> None:
+        return self.report()
     # endregion
 
     # region Solver Functions

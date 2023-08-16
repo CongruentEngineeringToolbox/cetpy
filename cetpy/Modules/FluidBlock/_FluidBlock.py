@@ -189,11 +189,13 @@ class FluidBlock(SML.Block):
         # misidentified.
         self._outlet = FluidPort()
         self._inlet = FluidPort(
-            downstream=self, flow_item=fluid, pressure=inlet_pressure,
-            temperature=inlet_temperature, mass_flow=inlet_mass_flow)
+            downstream=self, flow_item=fluid, tolerance=self.tolerance,
+            pressure=inlet_pressure, temperature=inlet_temperature,
+            mass_flow=inlet_mass_flow)
         self._outlet = FluidPort(
-            upstream=self, flow_item=fluid, pressure=outlet_pressure,
-            temperature=outlet_temperature, mass_flow=outlet_mass_flow)
+            upstream=self, flow_item=fluid, tolerance=self.tolerance,
+            pressure=outlet_pressure, temperature=outlet_temperature,
+            mass_flow=outlet_mass_flow)
         self.ports += [self._inlet, self._outlet]
         self.fluid_solver = FluidSolver(parent=self)
         # endregion

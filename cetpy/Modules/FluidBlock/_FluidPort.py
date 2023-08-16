@@ -34,6 +34,7 @@ class FluidPort(SML.ContinuousPort):
                  upstream: SML.Block | None = None,
                  downstream: SML.Block | None = None,
                  name: str = None,
+                 tolerance: float = None,
                  flow_item: FluidSkeleton | None = None,
                  area_mode: str = None,
                  area: float = None,
@@ -45,7 +46,8 @@ class FluidPort(SML.ContinuousPort):
                          name=name,
                          flow_item=flow_item,
                          upstream_dict_name='_outlet',
-                         downstream_dict_name='_inlet')
+                         downstream_dict_name='_inlet',
+                         tolerance=tolerance)
         self._area_mode = 'fixed'
         self._area = None
         if area_mode is None and area is None:

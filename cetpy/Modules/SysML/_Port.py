@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import cetpy.Modules.SysML
+from cetpy.Modules.Report import ReportPort
 
 
 class Port:
@@ -36,7 +37,7 @@ class Port:
         self._downstream = downstream
         self._upstream_dict_name = upstream_dict_name
         self._downstream_dict_name = downstream_dict_name
-        self._flow_item = flow_item
+        self.flow_item = flow_item
         self._tolerance = 0
         if tolerance is None:
             tolerance = 0
@@ -44,6 +45,8 @@ class Port:
 
         for fp in self.__flow_properties__:
             fp.__init_private_attributes__(self)
+
+        self.report = ReportPort(parent=self)
 
     # region System References
     @property

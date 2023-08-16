@@ -13,9 +13,9 @@ SysML Documentation:
 from __future__ import annotations
 
 from typing import Any, Tuple, Callable, List, Iterable, Sized
-import logging
 import numpy as np
 
+import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
     scale_value, name_2_display
 from cetpy.Modules.Utilities.InputValidation import validate_input
@@ -100,8 +100,9 @@ class DeterminationTest:
                 [instance.__setattr__(n, None) for n in self.properties
                  if n != new]
                 # noinspection PyUnresolvedReferences
-                logging.info(f"Autocorrected {instance.name_display} "
-                             f"over-determination. {new} is the new input.")
+                cetpy.active_session.logger.info(
+                    f"Autocorrected {instance.name_display} "
+                    f"over-determination. {new} is the new input.")
                 return
             elif self.auto_fix:
                 amendment = ' Autofix failed.'
@@ -110,7 +111,7 @@ class DeterminationTest:
             direction = 'under-'
 
         # noinspection PyUnresolvedReferences
-        logging.warning(
+        cetpy.active_session.logger.warning(
             f"{instance.name_display} is {direction}determined. Of "
             f"{', '.join(self.properties)} {n_target} must be set. "
             f"Currently {n_actual} are set.{amendment}")

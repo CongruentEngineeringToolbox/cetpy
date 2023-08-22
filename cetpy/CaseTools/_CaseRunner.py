@@ -70,12 +70,13 @@ class CaseRunner(cetpy.Modules.SysML.Block):
     output_properties = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=[list, type(None)])
 
-    __init_parameters__ = cetpy.Modules.SysML.Block.__init_parameters__ + [
-        'module', 'save_instances', 'catch_errors',
-        'additional_module_kwargs', 'output_properties'
-    ]
+    __init_parameters__ = \
+        cetpy.Modules.SysML.Block.__init_parameters__.copy() + [
+            'module', 'save_instances', 'catch_errors',
+            'additional_module_kwargs', 'output_properties'
+        ]
 
-    _reset_dict = cetpy.Modules.SysML.Block._reset_dict
+    _reset_dict = cetpy.Modules.SysML.Block._reset_dict.copy()
     _reset_dict.update({'_output_df': None, '_module_instances': None,
                         '_instance': None})
 

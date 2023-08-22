@@ -53,12 +53,12 @@ class Report:
         return self.report()
 
     def report(self) -> None:
-        """Print report to console."""
+        """Print report of block and parts to console."""
         [print(line[:-1]) for line in self.get_report_text()]
 
     def report_self(self) -> None:
-        """Print report to console."""
-        [print(line[:-1]) for line in self.get_report_text()]
+        """Print report of block to console."""
+        [print(line[:-1]) for line in self.get_report_self_text()]
     # endregion
 
     # region Report Text
@@ -147,7 +147,7 @@ class Report:
         lines += ['Name: {:>23s}\n'.format(block.name_display)]
         lines += ['Abbreviation: {:>15s}\n'.format(block.abbreviation)]
         if block.parent is not None:
-            lines += ['Parent: {:>21s}\n'.format(block.parent)]
+            lines += ['Parent: {:>21s}\n'.format(block.parent.name_display)]
         lines += ['# Solvers: {:>18d}\n'.format(len(solvers))]
         lines += ['# Ports: {:>20d}\n'.format(len(ports))]
         lines += ['# Parts: {:>20d}\n'.format(len(parts))]

@@ -473,8 +473,13 @@ class AggregateValueProperty(ValueProperty):
                 part_value = p.__getattribute__(self._name)
                 if part_value is not None:
                     value = value + part_value  # add non-mutable
-            except AttributeError:
-                pass
+            except AttributeError as err:
+                # Verify the error occurred on the first request not deeper in
+                # the calculation thereof.
+                if self._name in err.args[0]:
+                    pass
+                else:
+                    raise err
 
         return value
 

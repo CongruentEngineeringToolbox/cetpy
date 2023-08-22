@@ -43,6 +43,8 @@ class ReportSolver(Report):
         lines += ['=' * 80 + '\n']
 
         lines += ['Name: {:>23s}\n'.format(solver.__class__.__name__)]
+        if solver.parent is not None:
+            lines += ['Parent: {:>21s}\n'.format(solver.parent.name_display)]
         lines += ['Tolerance: {:>18.2e}\n'.format(solver.tolerance)]
 
         return lines

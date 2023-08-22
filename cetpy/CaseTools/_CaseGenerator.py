@@ -54,11 +54,12 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         permissible_list=(0, None),
         permissible_types_list=[type(None), int])
 
-    __init_parameters__ = cetpy.Modules.SysML.Block.__init_parameters__ + [
-        'input_df', 'method', 'sub_method', 'n_cases'
-    ]
+    __init_parameters__ = \
+        cetpy.Modules.SysML.Block.__init_parameters__.copy() + [
+            'input_df', 'method', 'sub_method', 'n_cases'
+        ]
 
-    _reset_dict = cetpy.Modules.SysML.Block._reset_dict
+    _reset_dict = cetpy.Modules.SysML.Block._reset_dict.copy()
     _reset_dict.update({'_output_df': None, '_module_instances': None,
                         '_instance': None})
 
@@ -97,7 +98,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         """Return filter of input keys defined with a min and max limit."""
         input_df = self.input_df
         if 'min' not in input_df.index or 'max' not in input_df.index:
-            return np.zeros(self.n_input_keys, dtype=int)
+            return np.zeros(self.n_input_keys, dtype=bool)
         else:
             return np.bitwise_not(np.isnan(input_df.loc['min', :])
                                   + np.isnan(input_df.loc['max', :]))
@@ -107,7 +108,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         """Return filter of input keys defined with a list of values."""
         input_df = self.input_df
         if 'list' not in input_df.index:
-            return np.zeros(self.n_input_keys, dtype=int)
+            return np.zeros(self.n_input_keys, dtype=bool)
         else:
             return np.bitwise_not(np.isnan(input_df.loc['list', :]))
 
@@ -116,7 +117,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         """Return filter of input keys defined with a normal distribution."""
         input_df = self.input_df
         if 'mean' not in input_df.index or 'std' not in input_df.index:
-            return np.zeros(self.n_input_keys, dtype=int)
+            return np.zeros(self.n_input_keys, dtype=bool)
         else:
             return np.bitwise_not(np.isnan(input_df.loc['mean', :])
                                   + np.isnan(input_df.loc['std', :]))
@@ -222,7 +223,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
     def __get_lhs__(self) -> pd.DataFrame:
         """Return monte carlo sampled dataframe of the input dataframe."""
         input_df = self.__get_preprocessed_input_df__().drop(
-            index=['mean', 'std'])
+            index=['mean', 'std'], errors='ignore')
         sub_method = self.sub_method
         if sub_method is None:
             sub_method = 'ese'

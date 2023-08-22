@@ -26,7 +26,7 @@ def apply_transfer(block: FluidBlock,
     name = flow_property.__getattribute__('_name')
     inlet = block.inlet_no_solve
     outlet = block.outlet_no_solve
-    direction = flow_property.get_direction(block.inlet_no_solve)
+    direction = flow_property.get_direction(inlet)
 
     if direction == 'downstream':
         source = inlet
@@ -75,6 +75,18 @@ class FluidSolver(Solver):
             blocks = self.parent.outlet_no_solve.flow_system_list
         except AttributeError:
             blocks = self.parent.inlet_no_solve.flow_system_list
+
+        # Drop first and last block from solver list if they don't have to
+        # solve a transfer.
+        try:
+            blocks[0].inlet_no_solve
+        except AttributeError:
+            blocks = blocks[1:]
+
+        try:
+            blocks[-1].outlet_no_solve
+        except AttributeError:
+            blocks = blocks[:-1]
 
         flow_properties = self.flow_properties
         ordered_lists = []
@@ -138,17 +150,17 @@ class FluidSolver(Solver):
 class FluidBlock(SML.Block):
     """Fluid Block element."""
 
-    _reset_dict = SML.Block._reset_dict
+    _reset_dict = SML.Block._reset_dict.copy()
     _reset_dict.update({'_dp_recalculate': True, '_dt_recalculate': True,
                         '_dmdot_recalculate': True})
-    _hard_reset_dict = SML.Block._hard_reset_dict
-    _hard_reset_dict.update({'_dp_stored': True, '_dt_stored': True,
-                             '_dmdot_stored': True})
+    _hard_reset_dict = SML.Block._hard_reset_dict.copy()
+    _hard_reset_dict.update({'_dp_stored': 0, '_dt_stored': 0,
+                             '_dmdot_stored': 0})
     dp_fixed = SML.ValueProperty()
     dt_fixed = SML.ValueProperty()
     dmdot_fixed = SML.ValueProperty()
 
-    __init_parameters__ = SML.Block.__init_parameters__ + [
+    __init_parameters__ = SML.Block.__init_parameters__.copy() + [
         'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter'
     ]
 
@@ -283,6 +295,10 @@ class FluidBlock(SML.Block):
             self._dp_recalculate = False
         return self._dp_stored
 
+    @dp.setter
+    def dp(self, val: float | None) -> None:
+        self.dp_fixed = val
+
     @value_property()
     def dt(self) -> float:
         r"""Difference in temperature from inlet to outlet [K].
@@ -295,6 +311,10 @@ class FluidBlock(SML.Block):
             self._dt_recalculate = False
         return self._dt_stored
 
+    @dt.setter
+    def dt(self, val: float | None) -> None:
+        self.dt_fixed = val
+
     @value_property()
     def dmdot(self) -> float:
         r"""Difference in mass flow from inlet to outlet [kg/s].
@@ -306,6 +326,10 @@ class FluidBlock(SML.Block):
             self._dmdot_stored = self._dmdot_solve()
             self._dmdot_recalculate = False
         return self._dmdot_stored
+
+    @dmdot.setter
+    def dmdot(self, val: float | None) -> None:
+        self.dmdot_fixed = val
     # endregion
 
     # region System References and Ports
@@ -375,7 +399,7 @@ class FluidBlock(SML.Block):
 
         See Also
         --------
-        FluidBlock.inlet
+        FluidBlock.outlet
         """
         return self._outlet
     # endregion

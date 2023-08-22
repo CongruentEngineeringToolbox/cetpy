@@ -21,7 +21,7 @@ class GenericFluidBlock(FluidBlock):
     dp_fixed = FluidBlock.dp_fixed
     dp_fixed.determination_test = DeterminationTest()
 
-    __init_parameters__ = FluidBlock.__init_parameters__ + [
+    __init_parameters__ = FluidBlock.__init_parameters__.copy() + [
         'kv', 'cd',
     ]
 

@@ -18,7 +18,7 @@ from cetpy.Modules.FluidBlock import FluidBlock
 class GenericFluidBlock(FluidBlock):
     """Generic Fluid Block element."""
 
-    dp_fixed = FluidBlock.dp_fixed
+    dp_fixed = FluidBlock.dp_fixed.copy()
     dp_fixed.determination_test = DeterminationTest()
 
     __init_parameters__ = FluidBlock.__init_parameters__.copy() + [

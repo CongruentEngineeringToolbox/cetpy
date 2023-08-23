@@ -108,7 +108,7 @@ class Report:
         if len(solvers) > 0:
             lines += ['\n']
             solvers_header = ' ' + block.name_display + "'s Solver Reports "
-            lines += [solvers_header.center(80, '=') + '\n']
+            lines += ['  ' + solvers_header.center(80, '=') + '\n']
 
             for sol in solvers:
                 solver_lines = sol.report.get_report_text()
@@ -117,12 +117,12 @@ class Report:
 
             solvers_header = (
                 ' ' + block.name_display + "'s Solver Reports Complete ")
-            lines += [solvers_header.center(80, '-') + '\n\n']
+            lines += ['  ' + solvers_header.center(80, '-') + '\n\n']
 
         if len(ports) > 0:
             lines += ['\n']
             ports_header = ' ' + block.name_display + "'s Port Reports "
-            lines += [ports_header.center(80, '=') + '\n']
+            lines += ['  ' + ports_header.center(80, '=') + '\n']
 
             for port in ports:
                 port_lines = port.report.get_report_text()
@@ -131,7 +131,7 @@ class Report:
 
             ports_header = (
                 ' ' + block.name_display + "'s Port Reports Complete ")
-            lines += [ports_header.center(80, '-') + '\n\n']
+            lines += ['  ' + ports_header.center(80, '-') + '\n\n']
 
         header = ' ' + self._parent.name_display + ' Complete '
         lines += ['\n' + header.center(80, '-') + '\n']

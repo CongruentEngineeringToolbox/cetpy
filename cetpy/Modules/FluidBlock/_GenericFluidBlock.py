@@ -37,12 +37,12 @@ class GenericFluidBlock(FluidBlock):
         FluidBlock.dp: public function with necessity check
         """
         if self.__class__.kv.fixed(self):
-            return 1e5 * self.inlet.rho / 1000 / (
+            return - 1e5 * self.inlet.rho / 1000 / (
                     self.kv / (self.inlet.vdot * 3600)) ** 2
         elif self.__class__.cd.fixed(self) and self.area is not None:
-            return (self.inlet.mdot / self.cda) ** 2 / (2 * self.inlet.rho)
+            return - (self.inlet.mdot / self.cda) ** 2 / (2 * self.inlet.rho)
         elif self.__class__.loss_factor.fixed(self):
-            return self.loss_factor * self.inlet.rho / 2 * self.inlet.q ** 2
+            return - self.loss_factor * self.inlet.rho / 2 * self.inlet.q ** 2
         else:
             return self.dp_fixed
     # endregion

@@ -210,10 +210,6 @@ class ValueProperty:
         # Rerun determination test setter when the name is known
         self.determination_test = self._determination_test
 
-    def name(self) -> str:
-        """Value Property Name"""
-        return self._name
-
     def str(self, instance) -> str:
         """Return formatted string of value."""
         value = self.value(instance)
@@ -411,6 +407,11 @@ class ValueProperty:
     # endregion
 
     # region Labelling
+    @property
+    def name(self) -> str:
+        """Value Property Name"""
+        return self._name
+
     @property
     def name_display(self) -> str:
         """Return the display formatted name of the value property."""

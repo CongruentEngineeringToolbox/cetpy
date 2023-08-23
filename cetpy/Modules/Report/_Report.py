@@ -26,8 +26,14 @@ class Report:
         if block is None:
             self._value_properties = []
         else:
-            self._value_properties = [p for p in type(block).__dict__.values()
-                                      if isinstance(p, ValueProperty)]
+            vp = {}
+            cls_list = type(block).mro()
+            for cls in cls_list.reverse():
+                cls_vp = [p for p in cls.__dict__.values()
+                          if isinstance(p, ValueProperty)]
+                cls_dict = dict(zip([p.name for p in cls_vp], cls_vp))
+                vp.update(cls_dict)
+            self._value_properties = list(vp.values())
 
     @property
     def value_properties(self) -> List[ValueProperty]:
@@ -146,6 +152,7 @@ class Report:
 
         lines += ['Name: {:>23s}\n'.format(block.name_display)]
         lines += ['Abbreviation: {:>15s}\n'.format(block.abbreviation)]
+        lines += ['Class: {:>22s}\n'.format(type(block).__name__)]
         if block.parent is not None:
             lines += ['Parent: {:>21s}\n'.format(block.parent.name_display)]
         lines += ['# Solvers: {:>18d}\n'.format(len(solvers))]
@@ -169,7 +176,7 @@ class Report:
         if len(parts) > 0:
             parts_lines = ['Parts: {:22s}\n'.format(
                 parts[0].name_display)]
-            for part in ports[1:]:
+            for part in parts[1:]:
                 parts_lines += ['       {:22s}\n'.format(
                     part.name_display)]
             lines += parts_lines
@@ -185,9 +192,24 @@ class Report:
         lines = ["Input\n"]
         lines += ['-----\n']
         for p in value_properties:
-            if not isinstance(p.__get__(block), Iterable):
-                lines += ["{:20s}: {:15s}\n".format(
-                    p.name_display, p.str(block))]
+            try:
+                value = p.__get__(block)
+                if not isinstance(value, str | float | int | Iterable):
+                    try:
+                        value = value.name_display
+                    except AttributeError:
+                        try:
+                            value = value.name
+                        except AttributeError:
+                            value = p.str(block)
+                else:
+                    value = p.str(block)
+
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+                value = 'NaN'
+            if len(value) < 100:
+                lines += ["{:25s}: {:15s}\n".format(
+                    p.name_display, value)]
 
         return lines
 
@@ -199,9 +221,24 @@ class Report:
         lines = ["Output\n"]
         lines += ['------\n']
         for p in value_properties:
-            if not isinstance(p.__get__(block), Iterable):
-                lines += ["{:20s}: {:15s}\n".format(
-                    p.name_display, p.str(block))]
+            try:
+                value = p.__get__(block)
+                if not isinstance(value, str | float | int | Iterable):
+                    try:
+                        value = value.name_display
+                    except AttributeError:
+                        try:
+                            value = value.name
+                        except AttributeError:
+                            value = p.str(block)
+                else:
+                    value = p.str(block)
+
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+                value = 'NaN'
+            if len(value) < 100:
+                lines += ["{:25s}: {:15s}\n".format(
+                    p.name_display, value)]
 
         return lines
     # endregion

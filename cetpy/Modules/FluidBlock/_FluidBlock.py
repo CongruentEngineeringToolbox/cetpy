@@ -161,7 +161,8 @@ class FluidBlock(SML.Block):
     dmdot_fixed = SML.ValueProperty()
 
     __init_parameters__ = SML.Block.__init_parameters__.copy() + [
-        'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter'
+        'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter',
+        'fluid'
     ]
 
     def __init__(self, name: str, abbreviation: str = None,
@@ -405,6 +406,15 @@ class FluidBlock(SML.Block):
     # endregion
 
     # region Input Properties
+    @value_property()
+    def fluid(self) -> FluidSkeleton:
+        """Fluid Behavioural Model. References the outlet port."""
+        return self._outlet.flow_item
+
+    @fluid.setter
+    def fluid(self, val: str | FluidSkeleton) -> None:
+        self._outlet.flow_item = val
+
     @value_property(determination_test=DeterminationTest())
     def area(self) -> float:
         """Fluid element characteristic flow area [m^2]."""

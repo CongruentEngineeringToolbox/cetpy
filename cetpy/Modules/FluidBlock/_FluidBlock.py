@@ -161,8 +161,7 @@ class FluidBlock(SML.Block):
     dmdot_fixed = SML.ValueProperty()
 
     __init_parameters__ = SML.Block.__init_parameters__.copy() + [
-        'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter',
-        'fluid'
+        'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter'
     ]
 
     def __init__(self, name: str, abbreviation: str = None,
@@ -248,6 +247,9 @@ class FluidBlock(SML.Block):
         # the up- or downstream references.
         self.upstream = upstream
         self.downstream = downstream
+        fluid = self._get_init_parameters('fluid')
+        if fluid is not None:
+            self.fluid = fluid
         # endregion
 
     # region Transfer Functions

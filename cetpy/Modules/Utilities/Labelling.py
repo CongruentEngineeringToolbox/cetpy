@@ -243,7 +243,7 @@ standard_unit_magnitudes = np.array([
 
 def scale_value(value: float) -> (float, str):
     """Apply base 3 scaling prefixes to a value and return new value/prefix."""
-    if value == 0:
+    if value == 0 or np.isnan(value) or np.isinf(value):
         index_min = 8
     else:
         index_min = np.where((abs(value) > standard_unit_magnitudes))[0][0]

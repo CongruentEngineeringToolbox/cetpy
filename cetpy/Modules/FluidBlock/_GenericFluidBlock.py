@@ -65,7 +65,7 @@ class GenericFluidBlock(FluidBlock):
     def kv(self) -> float:
         """Fluid element flow coefficient [m^3/h]."""
         return self.inlet.vdot * 3600 * np.sqrt(
-            1e5 / self.dp * self.inlet.rho / 1000)
+            -1e5 / self.dp * self.inlet.rho / 1000)
 
     @value_property(determination_test=dp_fixed.determination_test)
     def cd(self) -> float:
@@ -78,7 +78,7 @@ class GenericFluidBlock(FluidBlock):
         if self.__class__.cd.fixed(self) and self.area is not None:
             return self.cd * self.area
         else:
-            return self.inlet.mdot / np.sqrt(self.dp * self.inlet.rho * 2)
+            return self.inlet.mdot / np.sqrt(-self.dp * self.inlet.rho * 2)
 
     @cda.setter
     def cda(self, val: float | None) -> None:
@@ -90,5 +90,5 @@ class GenericFluidBlock(FluidBlock):
     @value_property(determination_test=dp_fixed.determination_test)
     def loss_factor(self) -> float:
         """Fluid element loss coefficient [-]."""
-        return 2 * self.dp / self.inlet.rho / self.inlet.q ** 2
+        return 2 * -self.dp / self.inlet.rho / self.inlet.q ** 2
     # endregion

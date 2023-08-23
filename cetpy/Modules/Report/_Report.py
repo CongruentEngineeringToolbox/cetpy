@@ -28,7 +28,8 @@ class Report:
         else:
             vp = {}
             cls_list = type(block).mro()
-            for cls in cls_list.reverse():
+            cls_list.reverse()
+            for cls in cls_list:
                 cls_vp = [p for p in cls.__dict__.values()
                           if isinstance(p, ValueProperty)]
                 cls_dict = dict(zip([p.name for p in cls_vp], cls_vp))

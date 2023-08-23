@@ -11,14 +11,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from cetpy.Modules.SysML import value_property, DeterminationTest
+from cetpy.Modules.SysML import value_property, DeterminationTest, \
+    ValueProperty
 from cetpy.Modules.FluidBlock import FluidBlock
 
 
 class GenericFluidBlock(FluidBlock):
     """Generic Fluid Block element."""
 
-    dp_fixed = FluidBlock.dp_fixed.copy()
+    dp_fixed = ValueProperty()
     dp_fixed.determination_test = DeterminationTest()
 
     __init_parameters__ = FluidBlock.__init_parameters__.copy() + [

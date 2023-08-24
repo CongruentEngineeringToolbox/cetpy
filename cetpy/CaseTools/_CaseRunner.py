@@ -173,7 +173,7 @@ class CaseRunner(cetpy.Modules.SysML.Block):
             kwargs = {}
 
         for col in [c for c in case._fields
-                    if c in self.case_generator.input_keys]:
+                    if c in self.input_df.columns]:
             kwargs.update({col: getattr(case, col)})
 
         # noinspection PyPropertyAccess

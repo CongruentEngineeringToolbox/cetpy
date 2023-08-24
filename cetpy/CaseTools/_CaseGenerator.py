@@ -123,7 +123,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         if 'list' not in input_df.index:
             return np.zeros(self.n_input_keys, dtype=bool)
         else:
-            return np.bitwise_not(np.isnan(input_df.loc['list', :]))
+            return np.bitwise_not(pd.isna(input_df.loc['list', :]))
 
     @property
     def idx_normal_distribution(self) -> np.ndarray:

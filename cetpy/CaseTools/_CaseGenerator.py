@@ -8,7 +8,7 @@ based on user input ranges.
 """
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import numpy as np
 import pandas as pd
 import itertools
@@ -23,19 +23,24 @@ import cetpy.Modules.Solver
 class CaseGeneratorSolver(cetpy.Modules.Solver.Solver):
 
     def _solve_function(self) -> None:
-        runner: cetpy.CaseTools.CaseRunner = self.parent
-        match runner.method:
+        block: cetpy.CaseTools.CaseGenerator = self.parent
+        match block.method:
             case 'direct':
-                case_df = runner.__get_direct__()
+                case_df = block.__get_direct__()
             case 'full_factorial':
-                case_df = runner.__get_full_factorial__()
+                case_df = block.__get_full_factorial__()
             case 'monte_carlo':
-                case_df = runner.__get_monte_carlo__()
+                case_df = block.__get_monte_carlo__()
             case 'lhs':
-                case_df = runner.__get_lhs__()
+                case_df = block.__get_lhs__()
             case _:
                 raise ValueError("Invalid method selector.")
-        runner._case_df = case_df
+
+        # Apply User Post-Processing Function if available
+        if block.case_df_postprocess_function is not None:
+            case_df = block.case_df_postprocess_function(case_df)
+
+        block._case_df = case_df
 
 
 class CaseGenerator(cetpy.Modules.SysML.Block):
@@ -53,35 +58,43 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
     n_cases = cetpy.Modules.SysML.ValueProperty(
         permissible_list=(0, None),
         permissible_types_list=[type(None), int])
+    case_df_postprocess_function = cetpy.Modules.SysML.ValueProperty(
+        permissible_types_list=[type(None), Callable])
 
     __init_parameters__ = \
         cetpy.Modules.SysML.Block.__init_parameters__.copy() + [
-            'input_df', 'method', 'sub_method', 'n_cases'
+            'input_df', 'method', 'sub_method', 'n_cases',
+            'case_df_postprocess_function'
         ]
 
     _reset_dict = cetpy.Modules.SysML.Block._reset_dict.copy()
-    _reset_dict.update({'_output_df': None, '_module_instances': None,
+    _reset_dict.update({'_case_df': None, '_module_instances': None,
                         '_instance': None})
 
     def __init__(self, input_df: pd.DataFrame = None,
                  method: str = 'direct',
-                 sub_method: str | None = None,
-                 n_cases: int = 1, **kwargs):
-        super().__init__(kwargs.pop('name', 'case_generator'),
-                         input_df=input_df,
-                         method=method,
-                         sub_method=sub_method,
-                         n_cases=n_cases,
-                         **kwargs)
+                 sub_method: str = None,
+                 n_cases: int = 1,
+                 case_df_postprocess_function:
+                 Callable[[pd.DataFrame], pd.DataFrame] = None,
+                 **kwargs):
+        super().__init__(
+            kwargs.pop('name', 'case_generator'),
+            input_df=input_df,
+            method=method,
+            sub_method=sub_method,
+            n_cases=n_cases,
+            case_df_postprocess_function=case_df_postprocess_function,
+            **kwargs)
         self._case_df = None
         self.case_solver = CaseGeneratorSolver(parent=self)
 
-    @property
+    @cetpy.Modules.SysML.value_property()
     def input_keys(self) -> List[str]:
         """List of keys in input_df."""
         return self.input_df.keys()
 
-    @property
+    @cetpy.Modules.SysML.value_property()
     def n_input_keys(self) -> int:
         """Return number of input keys."""
         return len(self.input_keys)

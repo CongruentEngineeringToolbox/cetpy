@@ -26,8 +26,15 @@ class Report:
         if block is None:
             self._value_properties = []
         else:
-            self._value_properties = [p for p in type(block).__dict__.values()
-                                      if isinstance(p, ValueProperty)]
+            vp = {}
+            cls_list = type(block).mro()
+            cls_list.reverse()
+            for cls in cls_list:
+                cls_vp = [p for p in cls.__dict__.values()
+                          if isinstance(p, ValueProperty)]
+                cls_dict = dict(zip([p.name for p in cls_vp], cls_vp))
+                vp.update(cls_dict)
+            self._value_properties = list(vp.values())
 
     @property
     def value_properties(self) -> List[ValueProperty]:
@@ -53,12 +60,12 @@ class Report:
         return self.report()
 
     def report(self) -> None:
-        """Print report to console."""
+        """Print report of block and parts to console."""
         [print(line[:-1]) for line in self.get_report_text()]
 
     def report_self(self) -> None:
-        """Print report to console."""
-        [print(line[:-1]) for line in self.get_report_text()]
+        """Print report of block to console."""
+        [print(line[:-1]) for line in self.get_report_self_text()]
     # endregion
 
     # region Report Text
@@ -101,7 +108,7 @@ class Report:
         if len(solvers) > 0:
             lines += ['\n']
             solvers_header = ' ' + block.name_display + "'s Solver Reports "
-            lines += [solvers_header.center(80, '=') + '\n']
+            lines += ['  ' + solvers_header.center(80, '=') + '\n']
 
             for sol in solvers:
                 solver_lines = sol.report.get_report_text()
@@ -110,12 +117,12 @@ class Report:
 
             solvers_header = (
                 ' ' + block.name_display + "'s Solver Reports Complete ")
-            lines += [solvers_header.center(80, '-') + '\n\n']
+            lines += ['  ' + solvers_header.center(80, '-') + '\n\n']
 
         if len(ports) > 0:
             lines += ['\n']
             ports_header = ' ' + block.name_display + "'s Port Reports "
-            lines += [ports_header.center(80, '=') + '\n']
+            lines += ['  ' + ports_header.center(80, '=') + '\n']
 
             for port in ports:
                 port_lines = port.report.get_report_text()
@@ -124,7 +131,7 @@ class Report:
 
             ports_header = (
                 ' ' + block.name_display + "'s Port Reports Complete ")
-            lines += [ports_header.center(80, '-') + '\n\n']
+            lines += ['  ' + ports_header.center(80, '-') + '\n\n']
 
         header = ' ' + self._parent.name_display + ' Complete '
         lines += ['\n' + header.center(80, '-') + '\n']
@@ -146,8 +153,9 @@ class Report:
 
         lines += ['Name: {:>23s}\n'.format(block.name_display)]
         lines += ['Abbreviation: {:>15s}\n'.format(block.abbreviation)]
+        lines += ['Class: {:>22s}\n'.format(type(block).__name__)]
         if block.parent is not None:
-            lines += ['Parent: {:>21s}\n'.format(block.parent)]
+            lines += ['Parent: {:>21s}\n'.format(block.parent.name_display)]
         lines += ['# Solvers: {:>18d}\n'.format(len(solvers))]
         lines += ['# Ports: {:>20d}\n'.format(len(ports))]
         lines += ['# Parts: {:>20d}\n'.format(len(parts))]
@@ -169,7 +177,7 @@ class Report:
         if len(parts) > 0:
             parts_lines = ['Parts: {:22s}\n'.format(
                 parts[0].name_display)]
-            for part in ports[1:]:
+            for part in parts[1:]:
                 parts_lines += ['       {:22s}\n'.format(
                     part.name_display)]
             lines += parts_lines
@@ -185,9 +193,24 @@ class Report:
         lines = ["Input\n"]
         lines += ['-----\n']
         for p in value_properties:
-            if not isinstance(p.__get__(block), Iterable):
-                lines += ["{:20s}: {:15s}\n".format(
-                    p.name_display, p.str(block))]
+            try:
+                value = p.__get__(block)
+                if not isinstance(value, str | float | int | Iterable):
+                    try:
+                        value = value.name_display
+                    except AttributeError:
+                        try:
+                            value = value.name
+                        except AttributeError:
+                            value = p.str(block)
+                else:
+                    value = p.str(block)
+
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+                value = 'NaN'
+            if len(value) < 100:
+                lines += ["{:25s}: {:15s}\n".format(
+                    p.name_display, value)]
 
         return lines
 
@@ -199,9 +222,24 @@ class Report:
         lines = ["Output\n"]
         lines += ['------\n']
         for p in value_properties:
-            if not isinstance(p.__get__(block), Iterable):
-                lines += ["{:20s}: {:15s}\n".format(
-                    p.name_display, p.str(block))]
+            try:
+                value = p.__get__(block)
+                if not isinstance(value, str | float | int | Iterable):
+                    try:
+                        value = value.name_display
+                    except AttributeError:
+                        try:
+                            value = value.name
+                        except AttributeError:
+                            value = p.str(block)
+                else:
+                    value = p.str(block)
+
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+                value = 'NaN'
+            if len(value) < 100:
+                lines += ["{:25s}: {:15s}\n".format(
+                    p.name_display, value)]
 
         return lines
     # endregion

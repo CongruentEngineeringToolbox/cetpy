@@ -40,12 +40,14 @@ class PartPropertyDoc:
 class PartProperty:
     """SysML ValueProperty which adds units of measure and error
     calculation."""
-    __slots__ = ['_name', '_name_instance', '_super_class', '_allowed_list']
+    __slots__ = ['_name', '_name_instance', '_super_class', '_allowed_list',
+                 '_additional_kwargs']
 
     __doc__ = PartPropertyDoc()
 
     def __init__(self, super_class: type(object),
-                 allowed_list: List[str | type(object) | None] = None) -> None:
+                 allowed_list: List[str | type(object) | None] = None,
+                 additional_kwargs: dict = None) -> None:
         self._name = ''
         self._name_instance = ''
 
@@ -57,6 +59,7 @@ class PartProperty:
                 if isinstance(a, str):
                     allowed_list[i_a] = cetpy.Configuration.get_module(a)
         self._allowed_list = allowed_list
+        self._additional_kwargs = additional_kwargs
 
     # region Getters and Setters
     def __set_name__(self, instance, name):
@@ -82,7 +85,7 @@ class PartProperty:
 
     def __set__(self, instance, value) -> None:
         if value is None:
-            if None in self._allowed_list:
+            if type(None) in self._allowed_list:
                 instance.__setattr__(self._name_instance, None)
                 instance.reset()
                 return
@@ -93,6 +96,9 @@ class PartProperty:
                 if value.lower().replace('_', '') == cls.__name__.lower()]
             if len(match_list) > 0:
                 value = match_list[0]
+            elif (len(self._allowed_list) == 0
+                  and value in cetpy.Configuration.module_dict.keys()):
+                value = cetpy.Configuration.get_module(value)
             else:
                 allowed_string = ', '.join([
                     cls.__name__.lower() for cls in self._allowed_list])
@@ -101,14 +107,20 @@ class PartProperty:
                     f"input {value}. Allowed classes are: {allowed_string}")
         if self._super_class in value.mro():
             initial_part = self.__get__(instance)
-            part = value(name=self._name, parent=instance,
-                         **instance.__init_kwargs__)
+
+            kwargs = instance.__init_kwargs__
+            if self._additional_kwargs is not None:
+                kwargs.update(self._additional_kwargs)
+
+            part = value(name=kwargs.pop('name', self._name), parent=instance,
+                         **kwargs)
+
             instance.__setattr__(self._name_instance, part)
             if initial_part is not None:
                 # noinspection PyUnresolvedReferences, PyDunderSlots
                 initial_part.parent = None
-                self._super_class.__set_state__(
-                    part, self._super_class.__get_state__(initial_part))
+                # self._super_class.__set_state__(
+                #     part, self._super_class.__get_state__(initial_part))
             instance.reset()
         else:
             raise ValueError(f"The part property input is not an instance of "
@@ -167,17 +179,23 @@ class PartsProperty(PartProperty):
                              f"{[type(val) for val in value]}.")
 
         initial_parts = self.__get__(instance)
+
+        kwargs = instance.__init_kwargs__
+        if self._additional_kwargs is not None:
+            kwargs.update(self._additional_kwargs)
+
         parts = []
-        for val in value:
-            parts += [val(name=self._name, parent=instance,
-                          **instance.__init_kwargs__)]
+        for i_v, val in enumerate(value):
+            parts += [val(name=kwargs.pop('name', self._name) + f"_{i_v}",
+                          parent=instance, **kwargs)]
+
         instance.__setattr__(self._name_instance, parts)
         for i_p, i_part in enumerate(initial_parts):
             # noinspection PyUnresolvedReferences, PyDunderSlots
             i_part.parent = None
-            if len(parts) > i_part:
-                self._super_class.__set_state__(
-                    parts[i_p], self._super_class.__get_state__(i_part))
+            # if len(parts) > i_part:
+            #     self._super_class.__set_state__(
+            #         parts[i_p], self._super_class.__get_state__(i_part))
         instance.reset()
     # endregion
 

@@ -8,7 +8,7 @@ thousands of design or operating variations.
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import List, Callable
 from time import perf_counter
 import numpy as np
 import pandas as pd
@@ -69,13 +69,17 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         permissible_types_list=[dict, type(None)])
     output_properties = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=[list, type(None)])
+    output_df_postprocess_function = cetpy.Modules.SysML.ValueProperty(
+        permissible_types_list=[type(None), Callable])
 
-    __init_parameters__ = cetpy.Modules.SysML.Block.__init_parameters__ + [
-        'module', 'save_instances', 'catch_errors',
-        'additional_module_kwargs', 'output_properties'
-    ]
+    __init_parameters__ = \
+        cetpy.Modules.SysML.Block.__init_parameters__.copy() + [
+            'module', 'save_instances', 'catch_errors',
+            'additional_module_kwargs', 'output_properties',
+            'output_df_postprocess_function'
+        ]
 
-    _reset_dict = cetpy.Modules.SysML.Block._reset_dict
+    _reset_dict = cetpy.Modules.SysML.Block._reset_dict.copy()
     _reset_dict.update({'_output_df': None, '_module_instances': None,
                         '_instance': None})
 
@@ -87,21 +91,29 @@ class CaseRunner(cetpy.Modules.SysML.Block):
                  output_properties: List[str] = None,
                  method: str = 'direct',
                  sub_method: str | None = None,
-                 n_cases: int = 1, **kwargs):
-        super().__init__(kwargs.pop('name', 'case_runner'),
-                         module=module,
-                         save_instances=save_instances,
-                         catch_errors=catch_errors,
-                         additional_module_kwargs=additional_module_kwargs,
-                         output_properties=output_properties,
-                         **kwargs)
+                 n_cases: int = 1,
+                 case_df_postprocess_function:
+                 Callable[[pd.DataFrame], pd.DataFrame] = None,
+                 output_df_postprocess_function:
+                 Callable[[pd.DataFrame], pd.DataFrame] = None,
+                 **kwargs):
+        super().__init__(
+            kwargs.pop('name', 'case_runner'),
+            module=module,
+            save_instances=save_instances,
+            catch_errors=catch_errors,
+            additional_module_kwargs=additional_module_kwargs,
+            output_properties=output_properties,
+            output_df_postprocess_function=output_df_postprocess_function,
+            **kwargs)
         self._output_df = None
         self._module_instances = None
         self._instance = None
         self.case_solver = CaseSolver(parent=self)
         self.case_generator = cetpy.CaseTools.CaseGenerator(
             input_df=input_df, method=method, sub_method=sub_method,
-            n_cases=n_cases)
+            n_cases=n_cases,
+            case_df_postprocess_function=case_df_postprocess_function)
 
     @module.setter
     def module(self, val: cetpy.Modules.SysML.Block | str) -> None:
@@ -137,6 +149,15 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         return self._output_df
 
     @property
+    def output_df_post_processed(self) -> pd.DataFrame:
+        """Return the completed run of cases with input followed by output
+        values and the user post-processing function applied."""
+        df = self.output_df
+        if self.output_df_postprocess_function is not None:
+            df = self.output_df_postprocess_function(df.copy())
+        return df
+
+    @property
     def module_instances(self) -> List[cetpy.Modules.SysML.Block]:
         """Return list of solved module instances if save_instances is
         enabled."""
@@ -152,7 +173,7 @@ class CaseRunner(cetpy.Modules.SysML.Block):
             kwargs = {}
 
         for col in [c for c in case._fields
-                    if c in self.case_generator.input_keys]:
+                    if c in self.input_df.columns]:
             kwargs.update({col: getattr(case, col)})
 
         # noinspection PyPropertyAccess

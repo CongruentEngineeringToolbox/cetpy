@@ -34,6 +34,7 @@ class Block:
     __init_parts__ = []
     _reset_dict = {}
     _hard_reset_dict = {}
+    __fixed_parameters__ = []
     _bool_parent_reset = True
 
     print = ValuePrinter()
@@ -145,10 +146,10 @@ class Block:
         self._get_init_parameters = parameter
         self.__init_kwargs__ = kwargs
 
+        self._resetting = True  # Avoid unnecessary resets.
         for key in self.__init_parameters__:
-            self._resetting = True  # Avoid unnecessary resets.
             getattr(type(self), key).__set__(self, parameter(key))
-            self._resetting = False
+        self._resetting = False
         # endregion
         # endregion
 
@@ -214,6 +215,7 @@ class Block:
     # endregion
 
     # region Solver Functions
+    # region Reset
     def reset(self, parent_reset: bool = None) -> None:
         """Tell the instance and sub-blocks to resolve before the next
         value output."""
@@ -247,7 +249,9 @@ class Block:
         for solver in self.solvers:
             solver.hard_reset(convergence_reset)
         self.reset()
+    # endregion
 
+    # region Solve
     @property
     def solved_self(self) -> bool:
         """Return bool if the block and its solvers are solved."""
@@ -269,6 +273,40 @@ class Block:
         """Solve the block, its solvers, and its parts."""
         self.solve_self()
         [p.solve() for p in self.parts]
+    # endregion
+
+    # region Fixed
+    @property
+    def fixed_self(self) -> bool:
+        """Bool if this block, regardless of its parts is fixed."""
+        return all([getattr(type(self), vp).fixed(self)
+                    for vp in self.__fixed_parameters__])
+
+    @fixed_self.setter
+    def fixed_self(self, val: bool) -> None:
+        if val:
+            vp_not_fixed = [getattr(type(self), vp)
+                            for vp in self.__fixed_parameters__
+                            if not getattr(type(self), vp).fixed(self)]
+
+            # First get all values to not retrigger a solve after every setting
+            values = [vp.__get__(self) for vp in vp_not_fixed]
+            [vp.__set__(self, value)
+             for vp, value in zip(vp_not_fixed, values)]
+        else:
+            pass  # ToDo: Write unset function.
+
+    @property
+    def fixed(self) -> bool:
+        """Bool if block and parts are fixed."""
+        return self.fixed_self and all([p.fixed for p in self.parts])
+
+    @fixed.setter
+    def fixed(self, val: bool):
+        self.fixed_self = val
+        for p in self.parts:
+            p.fixed = val
+    # endregion
     # endregion
 
     # region Input Properties

@@ -54,7 +54,7 @@ class FlowProperty(ValueProperty):
         self._name_instance_input = '_' + name + '_input'
         self._name_instance_direction = '_' + name + '_direction'
         self._name_instance_recalculate = '_d' + name + '_recalculate'
-        cls.__flow_properties__ += [self]
+        cls.__flow_properties__ = cls.__flow_properties__.copy() + [self]
 
     def __init_private_attributes__(self, instance):
         """Create relevant private attributes on the port."""

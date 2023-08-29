@@ -237,6 +237,11 @@ class FluidPort(SML.ContinuousPort):
         return self.flow_item.a(self.t, self.p)
 
     @value_property()
+    def mach(self) -> float:
+        """Mach number [-]."""
+        return self.q / self.a
+
+    @value_property()
     def pr(self) -> float:
         """Fluid Prandtl number [-]."""
         return self.flow_item.pr(self.t, self.p)
@@ -253,6 +258,6 @@ class FluidPort(SML.ContinuousPort):
 
     @value_property()
     def m(self) -> float:
-        """Fluid molecular mass [J/kg]."""
+        """Fluid molecular mass [kg/mol]."""
         return self.flow_item.m()
     # endregion

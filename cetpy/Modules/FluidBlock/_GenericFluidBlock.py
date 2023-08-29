@@ -11,17 +11,18 @@ from __future__ import annotations
 
 import numpy as np
 
-from cetpy.Modules.SysML import value_property, DeterminationTest
+from cetpy.Modules.SysML import value_property, DeterminationTest, \
+    ValueProperty
 from cetpy.Modules.FluidBlock import FluidBlock
 
 
 class GenericFluidBlock(FluidBlock):
     """Generic Fluid Block element."""
 
-    dp_fixed = FluidBlock.dp_fixed
+    dp_fixed = ValueProperty()
     dp_fixed.determination_test = DeterminationTest()
 
-    __init_parameters__ = FluidBlock.__init_parameters__ + [
+    __init_parameters__ = FluidBlock.__init_parameters__.copy() + [
         'kv', 'cd',
     ]
 
@@ -36,12 +37,12 @@ class GenericFluidBlock(FluidBlock):
         FluidBlock.dp: public function with necessity check
         """
         if self.__class__.kv.fixed(self):
-            return 1e5 * self.inlet.rho / 1000 / (
+            return - 1e5 * self.inlet.rho / 1000 / (
                     self.kv / (self.inlet.vdot * 3600)) ** 2
         elif self.__class__.cd.fixed(self) and self.area is not None:
-            return (self.inlet.mdot / self.cda) ** 2 / (2 * self.inlet.rho)
+            return - (self.inlet.mdot / self.cda) ** 2 / (2 * self.inlet.rho)
         elif self.__class__.loss_factor.fixed(self):
-            return self.loss_factor * self.inlet.rho / 2 * self.inlet.q ** 2
+            return - self.loss_factor * self.inlet.rho / 2 * self.inlet.q ** 2
         else:
             return self.dp_fixed
     # endregion
@@ -64,7 +65,7 @@ class GenericFluidBlock(FluidBlock):
     def kv(self) -> float:
         """Fluid element flow coefficient [m^3/h]."""
         return self.inlet.vdot * 3600 * np.sqrt(
-            1e5 / self.dp * self.inlet.rho / 1000)
+            -1e5 / self.dp * self.inlet.rho / 1000)
 
     @value_property(determination_test=dp_fixed.determination_test)
     def cd(self) -> float:
@@ -77,7 +78,7 @@ class GenericFluidBlock(FluidBlock):
         if self.__class__.cd.fixed(self) and self.area is not None:
             return self.cd * self.area
         else:
-            return self.inlet.mdot / np.sqrt(self.dp * self.inlet.rho * 2)
+            return self.inlet.mdot / np.sqrt(-self.dp * self.inlet.rho * 2)
 
     @cda.setter
     def cda(self, val: float | None) -> None:
@@ -89,5 +90,5 @@ class GenericFluidBlock(FluidBlock):
     @value_property(determination_test=dp_fixed.determination_test)
     def loss_factor(self) -> float:
         """Fluid element loss coefficient [-]."""
-        return 2 * self.dp / self.inlet.rho / self.inlet.q ** 2
+        return 2 * -self.dp / self.inlet.rho / self.inlet.q ** 2
     # endregion

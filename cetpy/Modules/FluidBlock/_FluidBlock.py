@@ -26,7 +26,7 @@ def apply_transfer(block: FluidBlock,
     name = flow_property.__getattribute__('_name')
     inlet = block.inlet_no_solve
     outlet = block.outlet_no_solve
-    direction = flow_property.get_direction(block.inlet_no_solve)
+    direction = flow_property.get_direction(inlet)
 
     if direction == 'downstream':
         source = inlet
@@ -49,12 +49,34 @@ def apply_transfer(block: FluidBlock,
 class FluidSolver(Solver):
     """Specification of the Solver class to solve a continuous fluid system."""
 
-    __slots__ = ['parents', '_flow_properties']
+    __slots__ = ['parents', '_flow_properties', '_parent_solver',
+                 '_sub_solvers']
 
-    def __init__(self, parent: FluidBlock, tolerance: float = None):
+    def __init__(self, parent: FluidBlock, tolerance: float = None,
+                 parent_solver: FluidSolver = None,
+                 sub_solvers: List[FluidSolver] = None) -> None:
         self._flow_properties = None
         super().__init__(parent, tolerance)
         self.parents = [parent]
+        self._parent_solver = parent_solver
+        if sub_solvers is None:
+            sub_solvers = []
+        self._sub_solvers = sub_solvers
+
+    # region Interface Functions
+    def reset(self, parent_reset: bool = True) -> None:
+        if not self._resetting:
+            self._resetting = True
+            self._recalculate = True
+            if self._parent_solver is not None:
+                self._parent_solver.reset(parent_reset)
+            for sol in self._sub_solvers:
+                sol.reset(parent_reset)
+            # Reset parent instance if desired
+            if parent_reset:
+                self.parent.reset()
+            self._resetting = False
+    # endregion
 
     # region Input Properties
     @property
@@ -76,6 +98,18 @@ class FluidSolver(Solver):
         except AttributeError:
             blocks = self.parent.inlet_no_solve.flow_system_list
 
+        # Drop first and last block from solver list if they don't have to
+        # solve a transfer.
+        try:
+            blocks[0].inlet_no_solve
+        except AttributeError:
+            blocks = blocks[1:]
+
+        try:
+            blocks[-1].outlet_no_solve
+        except AttributeError:
+            blocks = blocks[:-1]
+
         flow_properties = self.flow_properties
         ordered_lists = []
         for fp in flow_properties:
@@ -86,7 +120,42 @@ class FluidSolver(Solver):
             else:
                 ordered_lists += [blocks.copy()]
         return ordered_lists
+
+    @property
+    def parent_solver(self) -> FluidSolver | None:
+        """Return overarching fluid solver."""
+        return self._parent_solver
+
+    @parent_solver.setter
+    def parent_solver(self, val: FluidSolver | None) -> None:
+        self._parent_solver = val
+        self.reset()
+
+    def add_sub_solver(self, val: FluidSolver) -> None:
+        """Add a new inner sub-solver."""
+        self._sub_solvers += [val]
+        self.reset()
+
+    def remove_sub_solver(self, val: FluidSolver) -> None:
+        """Remove a specific sub-solver from the sub-solver list."""
+        self._sub_solvers.remove(val)
+        self.reset()
+
+    def clear_sub_solvers(self) -> None:
+        """Clear all sub-solvers"""
+        self._sub_solvers = []
+        self.reset()
     # endregion
+
+    # region Solver Functions
+    def _pre_solve(self) -> None:
+        # Solve top-down -> better performance and ensures the lower solvers
+        # get the correct boundary conditions to start with. Do this before
+        # the calculating flag is set so this solver is run on each parent
+        # solver loop.
+        if self._parent_solver is not None:
+            self._parent_solver.solve()
+        self._calculating = True
 
     def __solve_simple_step__(self) -> None:
         """Propagate boundary conditions through fluid system without
@@ -133,22 +202,23 @@ class FluidSolver(Solver):
 
             residuals = np.abs(values - values_last) / values
             values_last = values
+    # endregion
 
 
 class FluidBlock(SML.Block):
     """Fluid Block element."""
 
-    _reset_dict = SML.Block._reset_dict
+    _reset_dict = SML.Block._reset_dict.copy()
     _reset_dict.update({'_dp_recalculate': True, '_dt_recalculate': True,
                         '_dmdot_recalculate': True})
-    _hard_reset_dict = SML.Block._hard_reset_dict
-    _hard_reset_dict.update({'_dp_stored': True, '_dt_stored': True,
-                             '_dmdot_stored': True})
+    _hard_reset_dict = SML.Block._hard_reset_dict.copy()
+    _hard_reset_dict.update({'_dp_stored': 0, '_dt_stored': 0,
+                             '_dmdot_stored': 0})
     dp_fixed = SML.ValueProperty()
     dt_fixed = SML.ValueProperty()
     dmdot_fixed = SML.ValueProperty()
 
-    __init_parameters__ = SML.Block.__init_parameters__ + [
+    __init_parameters__ = SML.Block.__init_parameters__.copy() + [
         'dp_fixed', 'dt_fixed', 'dmdot_fixed', 'area', 'hydraulic_diameter'
     ]
 
@@ -235,6 +305,9 @@ class FluidBlock(SML.Block):
         # the up- or downstream references.
         self.upstream = upstream
         self.downstream = downstream
+        fluid = self._get_init_parameters('fluid')
+        if fluid is not None:
+            self.fluid = fluid
         # endregion
 
     # region Transfer Functions
@@ -283,6 +356,10 @@ class FluidBlock(SML.Block):
             self._dp_recalculate = False
         return self._dp_stored
 
+    @dp.setter
+    def dp(self, val: float | None) -> None:
+        self.dp_fixed = val
+
     @value_property()
     def dt(self) -> float:
         r"""Difference in temperature from inlet to outlet [K].
@@ -295,6 +372,10 @@ class FluidBlock(SML.Block):
             self._dt_recalculate = False
         return self._dt_stored
 
+    @dt.setter
+    def dt(self, val: float | None) -> None:
+        self.dt_fixed = val
+
     @value_property()
     def dmdot(self) -> float:
         r"""Difference in mass flow from inlet to outlet [kg/s].
@@ -306,6 +387,10 @@ class FluidBlock(SML.Block):
             self._dmdot_stored = self._dmdot_solve()
             self._dmdot_recalculate = False
         return self._dmdot_stored
+
+    @dmdot.setter
+    def dmdot(self, val: float | None) -> None:
+        self.dmdot_fixed = val
     # endregion
 
     # region System References and Ports
@@ -375,12 +460,21 @@ class FluidBlock(SML.Block):
 
         See Also
         --------
-        FluidBlock.inlet
+        FluidBlock.outlet
         """
         return self._outlet
     # endregion
 
     # region Input Properties
+    @value_property()
+    def fluid(self) -> FluidSkeleton:
+        """Fluid Behavioural Model. References the outlet port."""
+        return self._outlet.flow_item
+
+    @fluid.setter
+    def fluid(self, val: str | FluidSkeleton) -> None:
+        self._outlet.flow_item = val
+
     @value_property(determination_test=DeterminationTest())
     def area(self) -> float:
         """Fluid element characteristic flow area [m^2]."""

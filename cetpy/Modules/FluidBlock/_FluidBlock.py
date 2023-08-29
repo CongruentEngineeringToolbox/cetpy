@@ -49,12 +49,34 @@ def apply_transfer(block: FluidBlock,
 class FluidSolver(Solver):
     """Specification of the Solver class to solve a continuous fluid system."""
 
-    __slots__ = ['parents', '_flow_properties']
+    __slots__ = ['parents', '_flow_properties', '_parent_solver',
+                 '_sub_solvers']
 
-    def __init__(self, parent: FluidBlock, tolerance: float = None):
+    def __init__(self, parent: FluidBlock, tolerance: float = None,
+                 parent_solver: FluidSolver = None,
+                 sub_solvers: List[FluidSolver] = None) -> None:
         self._flow_properties = None
         super().__init__(parent, tolerance)
         self.parents = [parent]
+        self._parent_solver = parent_solver
+        if sub_solvers is None:
+            sub_solvers = []
+        self._sub_solvers = sub_solvers
+
+    # region Interface Functions
+    def reset(self, parent_reset: bool = True) -> None:
+        if not self._resetting:
+            self._resetting = True
+            self._recalculate = True
+            if self._parent_solver is not None:
+                self._parent_solver.reset(parent_reset)
+            for sol in self._sub_solvers:
+                sol.reset(parent_reset)
+            # Reset parent instance if desired
+            if parent_reset:
+                self.parent.reset()
+            self._resetting = False
+    # endregion
 
     # region Input Properties
     @property
@@ -98,7 +120,42 @@ class FluidSolver(Solver):
             else:
                 ordered_lists += [blocks.copy()]
         return ordered_lists
+
+    @property
+    def parent_solver(self) -> FluidSolver | None:
+        """Return overarching fluid solver."""
+        return self._parent_solver
+
+    @parent_solver.setter
+    def parent_solver(self, val: FluidSolver | None) -> None:
+        self._parent_solver = val
+        self.reset()
+
+    def add_sub_solver(self, val: FluidSolver) -> None:
+        """Add a new inner sub-solver."""
+        self._sub_solvers += [val]
+        self.reset()
+
+    def remove_sub_solver(self, val: FluidSolver) -> None:
+        """Remove a specific sub-solver from the sub-solver list."""
+        self._sub_solvers.remove(val)
+        self.reset()
+
+    def clear_sub_solvers(self) -> None:
+        """Clear all sub-solvers"""
+        self._sub_solvers = []
+        self.reset()
     # endregion
+
+    # region Solver Functions
+    def _pre_solve(self) -> None:
+        # Solve top-down -> better performance and ensures the lower solvers
+        # get the correct boundary conditions to start with. Do this before
+        # the calculating flag is set so this solver is run on each parent
+        # solver loop.
+        if self._parent_solver is not None:
+            self._parent_solver.solve()
+        self._calculating = True
 
     def __solve_simple_step__(self) -> None:
         """Propagate boundary conditions through fluid system without
@@ -145,6 +202,7 @@ class FluidSolver(Solver):
 
             residuals = np.abs(values - values_last) / values
             values_last = values
+    # endregion
 
 
 class FluidBlock(SML.Block):

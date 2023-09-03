@@ -251,3 +251,75 @@ def scale_value(value: float) -> (float, str):
         index_min = 8
     value = value / standard_unit_magnitudes[index_min]
     return value, standard_unit_magnitude_abbreviations[index_min]
+
+
+def scale_value_unit(value: float, unit: str) -> (float, str):
+    """Apply base 3 scaling prefixes to a value and unit pair incorporating
+    handling of units with exponents."""
+    val_scaled, prefix = scale_value(value)
+
+    if not any([str(i) in unit for i in range(10)]) or prefix == '':
+        # No higher order unit exponents, direct output is correct.
+        return val_scaled, prefix + unit
+    else:
+        if 'm^' in unit:
+            # Try special handling of areas and volumes, as these quickly lead
+            # to vastly scaled properties
+            if '/' not in unit or unit.find('m^') < unit.find('/'):
+                # No division or area in numerator
+                u = 'm^2'
+                if u in unit:
+                    match prefix:
+                        case 'E':
+                            return val_scaled, unit.replace(u, 'T' + u)
+                        case 'T':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case 'M':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'µ':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'p':
+                            return val_scaled, unit.replace(u, 'µ' + u)
+                        case _:
+                            return value, unit
+                u = 'm^3'
+                if u in unit:
+                    match prefix:
+                        case 'E':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case 'G':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'n':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case _:
+                            return value, unit
+                return value, unit
+            else:
+                # Denominator
+                u = 'm^2'
+                if u in unit:
+                    match prefix:
+                        case 'T':
+                            return val_scaled, unit.replace(u, 'µ' + u)
+                        case 'M':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'µ':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'p':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case _:
+                            return value, unit
+                u = 'm^3'
+                if u in unit:
+                    match prefix:
+                        case 'G':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'm':
+                            return val_scaled, unit.replace(u, 'L')
+                        case 'n':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case _:
+                            return value, unit
+                return value, unit
+        else:
+            return value, prefix + '(' + unit + ')'

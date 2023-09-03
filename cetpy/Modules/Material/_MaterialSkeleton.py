@@ -30,7 +30,7 @@ class MaterialSkeleton:
     def rho(self, t: float | np.ndarray | None = None) -> float | np.ndarray:
         """Return material density from temperature [kg/m^3].
 
-        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
         is assumed.
         """
         raise NotImplementedError
@@ -39,7 +39,7 @@ class MaterialSkeleton:
                                   ) -> float | np.ndarray:
         """Return material ultimate tensile strength from temperature [kg/m^3].
 
-        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
         is assumed.
         """
         raise NotImplementedError
@@ -48,7 +48,25 @@ class MaterialSkeleton:
                        ) -> float | np.ndarray:
         """Return material yield strength from temperature [kg/m^3].
 
-        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
+        is assumed.
+        """
+        raise NotImplementedError
+
+    def youngs_modulus(self, t: float | np.ndarray | None = None
+                       ) -> float | np.ndarray:
+        """Return Young's Modulus, E-Module from temperature [N/m^2].
+
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
+        is assumed.
+        """
+        raise NotImplementedError
+
+    def poissons_ratio(self, t: float | np.ndarray | None = None
+                       ) -> float | np.ndarray:
+        """Return Poisson's Ratio, (nu) from temperature [-].
+
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
         is assumed.
         """
         raise NotImplementedError
@@ -57,7 +75,7 @@ class MaterialSkeleton:
             float | np.ndarray:
         """Return material thermal conductivity from temperature [kg/m^3].
 
-        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
         is assumed.
         """
         raise NotImplementedError
@@ -66,7 +84,16 @@ class MaterialSkeleton:
                           ) -> float | np.ndarray:
         """Return material thermal expansion coefficient from temperature [-].
 
-        If no temperature is specified. Room Temperature 298.15 K (25 deg C)
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
+        is assumed.
+        """
+        raise NotImplementedError
+
+    def specific_heat_capacity(self, t: float | np.ndarray | None = None
+                               ) -> float | np.ndarray:
+        """Return material specific heat capacity from temperature [J/kgK].
+
+        If no temperature is specified. Room temperature 298.15 K (25 deg C)
         is assumed.
         """
         raise NotImplementedError

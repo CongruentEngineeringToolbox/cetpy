@@ -80,9 +80,9 @@ class FlowProperty(ValueProperty):
 
         instance.__setattr__(name_recalculate, False)
         instance.__setattr__(name_stored, 0)
-        reset_dict = type(instance).__getattribute__('_reset_dict')
+        reset_dict = getattr(type(instance), '_reset_dict')
         reset_dict.update({self._name_instance_recalculate: True})
-        hard_reset_dict = type(instance).__getattribute__('_hard_reset_dict')
+        hard_reset_dict = getattr(type(instance), '_hard_reset_dict')
         hard_reset_dict.update({name_stored: 0})
 
         def delta() -> float:

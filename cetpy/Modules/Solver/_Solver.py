@@ -16,16 +16,19 @@ class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 'parent', 'convergence_keys', '_tolerance', 'report']
+                 'parent', '_tolerance', 'report', '_last_input']
 
     print = ValuePrinter()
+
+    input_keys: List[str] = []
+    convergence_keys: List[str] = []
 
     def __init__(self, parent, tolerance: float = None):
         self._recalculate = True
         self._calculating = False
         self._resetting = False
+        self._last_input = []
         self._hold = 0
-        self.convergence_keys: List[str] = []
         self.parent = parent
         if parent is not None and self not in parent.solvers:
             parent.solvers += [self]
@@ -51,9 +54,10 @@ class Solver:
         self._resetting = False
         self._calculating = False
         self.reset()
+        self._last_input = []
         if convergence_reset:
             for key in self.convergence_keys:
-                self.__setattr__(key, None)
+                self.__deep_setattr__(key, None)
 
     def __deep_getattr__(self, name: str) -> Any:
         """Get value from block or its parts, solvers, and ports."""
@@ -72,13 +76,68 @@ class Solver:
             name_split = name.split('.')
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
+
+    def __deep_get_vp__(self, name: str) -> Any:
+        """Get value property from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return getattr(type(self), name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_get_vp__(
+                '.'.join(name_split[1:]))
     # endregion
 
     # region Solver Flags
     @property
     def solved(self) -> bool:
-        """Return bool if the solver is solved."""
-        return not self._recalculate
+        """Return bool if the solver is solved.
+
+        If the recalculate flag is True and input keys are specified the
+        function further calls Solver.necessary to perform an additional
+        check if a resolve is actually necessary using the last stored solve
+        input parameters.
+        """
+        return not self._recalculate or not self.necessary
+
+    # region Necessity Test
+    @property
+    def necessary(self) -> bool:
+        """Return bool if a rerun in necessary. If no input keys are
+        specified, the function always returns True as it cannot verify the
+        inputs are still the same. The solved check still prioritises the
+        recalculate flag set by the post_solver."""
+        input_keys = self.input_keys
+        last_input = self._last_input
+        if len(input_keys) == 0 or len(last_input) == 0:
+            return True
+        for val_last, key in zip(last_input, input_keys):
+            vp = self.__deep_get_vp__(key)
+            val_new = self.__deep_getattr__(key)
+            if vp.__reset_necessary(self, val_new, val_last):
+                # break on first indication that a resolve is necessary
+                return True
+        if not self.calculating:  # Shortcut for next call
+            self._recalculate = False
+        return False
+
+    def __get_input__(self) -> list:
+        """Pull and return all current input properties."""
+        return [self.__deep_getattr__(k) for k in self.input_keys]
+
+    def __get_input_sensitivity__(self) -> List[float]:
+        """Pull and return all current input properties."""
+        return [self.__deep_get_vp__(k).necessity_test
+                for k in self.input_keys]
+
+    def _write_last_input(self) -> None:
+        """Write current input properties to _last_input attribute.
+
+        This function is called as part of the pre-run. It's recommended
+        that if the solver is recursive, the function is also called once at
+        the start of every solver loop.
+        """
+        self._last_input = self.__get_input__()
+    # endregion
 
     @property
     def calculating(self) -> bool:
@@ -135,6 +194,7 @@ class Solver:
     def _pre_solve(self) -> None:
         """Conduct standardised pre-run of the solver."""
         self._calculating = True
+        self._write_last_input()
 
     def _solve_function(self) -> None:
         """This is the actual solve function of the solver."""

@@ -137,6 +137,15 @@ class Port:
             name_split = name.split('.')
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
+
+    def __deep_get_vp__(self, name: str) -> Any:
+        """Get value property from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return getattr(type(self), name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_get_vp__(
+                '.'.join(name_split[1:]))
     # endregion
 
     # region Resetting

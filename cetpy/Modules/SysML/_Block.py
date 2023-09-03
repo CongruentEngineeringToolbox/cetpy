@@ -23,7 +23,18 @@ from cetpy.Modules.Report import Report
 
 
 class Block:
-    """SysML Block element."""
+    """SysML Block element.
+
+    This is the basic system block of SysML. It can contain parts,
+    themselves Blocks. It can contain ports, which handle interfaces to
+    other elements. The block can also contain references to solvers,
+    which are a product of cetpy, not SysML, that handle a decentralised
+    solver architecture for any slow computations.
+
+    This base class contains functions that handle initialisation, loading
+    from config files and keyword arguments, attach a session logger,
+    and create sub parts according to model definitions.
+    """
 
     __slots__ = ['_resetting', 'name', 'abbreviation', '_parent',
                  '_tolerance', '_logger',
@@ -42,6 +53,26 @@ class Block:
     def __init__(self, name: str, abbreviation: str = None,
                  parent: Block = None, tolerance: float = None, **kwargs
                  ) -> None:
+        """Initialise a Block instance.
+
+        Parameters
+        ----------
+        name
+            A name for the block, used for visualizations, reports,
+            and other user output.
+        abbreviation: optional
+            A shortened abbreviation of the name that can also be used for
+            output functions where a long-name would be a prohibitive
+            identifier. If none is given, the block predicts a sensible
+            abbreviation.
+        parent: optional
+            Another block, which is to contain this block as a part. The
+            bidirectional connection is made automatically.
+        tolerance: optional
+            A general tolerance for the block, its solvers, ports,
+            and parts. If None is provided, takes the tolerance of the
+            parent if available or from the active session configuration.
+        """
         # region Logging
         if cetpy.active_session is not None:
             self._logger = cetpy.active_session.logger
@@ -59,7 +90,15 @@ class Block:
         if abbreviation is None:
             abbreviation = name_2_abbreviation(name)
         self.abbreviation = abbreviation
+
+        # region References
+        self.parts: List[Block] = []
+        self.ports = []
+        self.requirements = []
+        self.solvers: List[Solver] = []
+        self.report = Report(parent=self)
         self.parent = parent
+        # endregion
 
         # region Config Loading
         session = cetpy.active_session
@@ -150,15 +189,18 @@ class Block:
         for key in self.__init_parameters__:
             getattr(type(self), key).__set__(self, parameter(key))
         self._resetting = False
-        # endregion
-        # endregion
 
-        # region References
-        self.parts: List[Block] = []
-        self.ports = []
-        self.requirements = []
-        self.solvers: List[Solver] = []
-        self.report = Report(parent=self)
+        # Determination test is disabled on initial initialisation as the
+        # parameters are initialised in sequence, and it would fail regardless
+        # on the first parameters.
+        d_tests = []
+        for key in [k for k in self.__init_parameters__
+                    if getattr(type(self), k).determination_test is not None]:
+            d_test = getattr(type(self), key).determination_test
+            if d_test not in d_tests:
+                d_tests += [d_test]
+                d_test.test(self)
+        # endregion
 
         # region Part Initialisation
         for key in self.__init_parts__:
@@ -172,7 +214,13 @@ class Block:
         # region Tolerance
         self._tolerance = 0
         if tolerance is None:
-            tolerance = cetpy.active_session.parameter('tolerance')
+            if self.parent is not None:
+                try:
+                    tolerance = self.parent.tolerance
+                except AttributeError:
+                    tolerance = cetpy.active_session.parameter('tolerance')
+            else:
+                tolerance = cetpy.active_session.parameter('tolerance')
         self.tolerance = tolerance
         # endregion
 
@@ -183,14 +231,16 @@ class Block:
 
     @parent.setter
     def parent(self, val: Block) -> None:
-        if val is None and self._parent is not None:
+        if val is not self._parent and self._parent is not None:
             try:
                 self._parent.parts.remove(self)
+                self._parent.reset()
             except ValueError:
                 pass
-        elif val is not None and self not in val.parts:
+        if val is not None and self not in val.parts:
             val.parts += [self]
         self._parent = val
+        self.reset()
 
     def __deep_getattr__(self, name: str) -> Any:
         """Get value from block or its parts, solvers, and ports."""
@@ -210,6 +260,15 @@ class Block:
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
 
+    def __deep_get_vp__(self, name: str) -> Any:
+        """Get value property from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return getattr(type(self), name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_get_vp__(
+                '.'.join(name_split[1:]))
+
     def __call__(self, *args, **kwargs) -> None:
         return self.report()
     # endregion
@@ -221,13 +280,15 @@ class Block:
         value output."""
         if not self._resetting:
             self._resetting = True
-            # reset all sub solvers while not calling the instances own reset
+            # reset all subcomponents while not calling the instances own reset
             for s in self.solvers:
                 s.reset(parent_reset=False)
+            for p in self.parts:
+                p.reset(parent_reset=False)
+            for p in self.ports:
+                p.reset()
 
-            # Reset all local attributes to the desired reset value
-            for key, val in self._reset_dict.items():
-                self.__setattr__(key, val)
+            self.reset_self()
 
             # Reset parent instance if desired:
             if parent_reset is None:
@@ -236,6 +297,13 @@ class Block:
                 self.parent.reset()
 
             self._resetting = False
+
+    def reset_self(self) -> None:
+        """Reset own reset parameters without calling any changes on
+        attached blocks, ports, solvers."""
+        # Reset all local attributes to the desired reset value
+        for key, val in self._reset_dict.items():
+            self.__setattr__(key, val)
 
     def hard_reset(self, convergence_reset: bool = False) -> None:
         """Reset all blocks including solver flags and intermediate values.
@@ -248,6 +316,8 @@ class Block:
             self.__setattr__(key, val)
         for solver in self.solvers:
             solver.hard_reset(convergence_reset)
+        for p in self.parts:
+            p.hard_reset(convergence_reset)
         self.reset()
     # endregion
 
@@ -294,7 +364,18 @@ class Block:
             [vp.__set__(self, value)
              for vp, value in zip(vp_not_fixed, values)]
         else:
-            pass  # ToDo: Write unset function.
+            val_dict = {}
+            for vp in self.__fixed_parameters__:
+                if getattr(type(self), vp).determination_test is not None:
+                    vp_free = getattr(
+                        type(self), vp).determination_test.vp_free(self)
+                    if (len(vp_free) == 1 and
+                            vp_free[0] not in self.__fixed_parameters__):
+                        val_dict.update({
+                            vp_free[0]: self.__getattribute__(vp_free[0])})
+
+            for key, val in val_dict.items():
+                self.__setattr__(key, val)
 
     @property
     def fixed(self) -> bool:

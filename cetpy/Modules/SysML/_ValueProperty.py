@@ -17,7 +17,7 @@ import numpy as np
 
 import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
-    scale_value, name_2_display
+    scale_value_unit, name_2_display
 from cetpy.Modules.Utilities.InputValidation import validate_input
 
 
@@ -25,9 +25,16 @@ def value_property(equation: str = None,
                    determination_test: DeterminationTest = None,
                    necessity_test: float = 0.1,
                    permissible_list: None | List | Tuple = None,
-                   permissible_types_list: None | type | List = None
+                   permissible_types_list: None | type | List = None,
+                   input_permissible: bool = None
                    ) -> Callable[[Callable], ValueProperty]:
     """Decorator Factory to create ValueProperties from getter functions."""
+
+    if input_permissible is None:
+        if permissible_list is not None or permissible_types_list is not None:
+            input_permissible = True
+        else:
+            input_permissible = False
 
     def decorator(func: Callable) -> ValueProperty:
         """Decorator to create a ValueProperty with metadata from getter."""
@@ -35,7 +42,8 @@ def value_property(equation: str = None,
                              determination_test=determination_test,
                              necessity_test=necessity_test,
                              permissible_list=permissible_list,
-                             permissible_types_list=permissible_types_list)
+                             permissible_types_list=permissible_types_list,
+                             input_permissible=input_permissible)
         return prop
 
     return decorator
@@ -54,8 +62,8 @@ class UnitFloat(float):
         self.unit = unit
 
     def __str__(self) -> str:
-        value, prefix = scale_value(self * 1.0)
-        return str(value) + ' ' + prefix + self.unit
+        value, unit = scale_value_unit(self * 1.0, self.unit)
+        return str(value) + ' ' + unit
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -64,15 +72,17 @@ class UnitFloat(float):
 class DeterminationTest:
     """Class to manage over- and under-determination of model inputs."""
 
-    __slots__ = ['_num', 'auto_fix', 'properties']
+    __slots__ = ['_num', 'auto_fix', 'properties', 'deep_properties']
 
     def __init__(self, properties: List[str] = None,
-                 num: int = 1, auto_fix: bool = True) -> None:
+                 num: int = 1, auto_fix: bool = True,
+                 deep_properties: List[str] = None,) -> None:
         self._num = num
         self.auto_fix = auto_fix
         if properties is None:
             properties: List[str] = []
         self.properties = properties
+        self.deep_properties = deep_properties
 
     @property
     def num(self) -> int:
@@ -83,11 +93,57 @@ class DeterminationTest:
     def num(self, val: int) -> None:
         self._num = int(val)
 
+    def n_actual_deep(self, instance) -> int:
+        """Return number of properties that are either fixed or determined
+        on an attached node of the instance."""
+        n_deep = 0
+        for key in self.deep_properties:
+            try:
+                vp = instance.__ddep_get_vp__(key)
+                ref = instance.__deep_getattr__(".".join(key.split(".")[:-1]))
+                if vp.determination_test is not None:
+                    n_deep += vp.determination_test.n_determination(ref) + 1
+                else:
+                    n_deep += int(vp.fixed(ref))
+            except AttributeError:
+                pass
+        return n_deep
+
+    def vp_fixed(self, instance) -> List[str]:
+        """Return value-properties that are currently fixed."""
+        return [n for n in self.properties
+                if getattr(type(instance), n).fixed(instance)]
+
+    def vp_free(self, instance) -> List[str]:
+        """Return value-properties that are currently calculated."""
+        return [n for n in self.properties
+                if not getattr(type(instance), n).fixed(instance)]
+
+    def n_actual(self, instance) -> int:
+        """Number of input currently defined."""
+        return sum([getattr(type(instance), n).fixed(instance)
+                    for n in self.properties]) + self.n_actual_deep(instance)
+
+    def n_determination(self, instance) -> int:
+        """Return number of free variables."""
+        return self._num - self.n_actual(instance)
+
+    def determined(self, instance) -> bool:
+        """Return bool if value property set are correctly determined."""
+        return self.n_determination(instance) == 0
+
+    def under_determined(self, instance) -> bool:
+        """Return bool if value property set is under-determined."""
+        return self.n_determination(instance) > 0
+
+    def over_determined(self, instance) -> bool:
+        """Return bool if value property set is over-determined."""
+        return self.n_determination(instance) < 0
+
     def test(self, instance, new: str = None) -> None:
         """Test the determination of the instance. If auto fix is on,
         the test attempts to automatically fix it."""
-        n_actual = sum([getattr(type(instance), n).fixed(instance)
-                        for n in self.properties])
+        n_actual = self.n_actual(instance)
         n_target = self._num
 
         direction = ''
@@ -138,19 +194,22 @@ class ValueProperty:
     calculation."""
     __slots__ = ['_name', '_name_instance', '_name_instance_reset',
                  '_determination_test', '_necessity_test', 'equation',
-                 '_unit', '_axis_label', 'fget', 'fset', 'fdel',
-                 '_permissible_list', '_permissible_types_list']
+                 '_unit', '_axis_label', 'fget', 'fset', 'fdel', 'ffixed',
+                 '_permissible_list', '_permissible_types_list',
+                 'input_permissible']
 
     __doc__ = ValuePropertyDoc()
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
                  fget: Callable = None, fset: Callable = None,
-                 fdel: Callable = None, equation: str = None,
+                 fdel: Callable = None, ffixed: Callable = None,
+                 equation: str = None,
                  determination_test: DeterminationTest = None,
                  necessity_test: float = 0.1,
                  permissible_list: None | List | Tuple = None,
-                 permissible_types_list: None | type | List = None) -> None:
+                 permissible_types_list: None | type | List = None,
+                 input_permissible: bool = True) -> None:
         self._determination_test = None
         self._necessity_test = None
         self._permissible_list = None
@@ -163,6 +222,7 @@ class ValueProperty:
         self.necessity_test = necessity_test
         self.permissible_list = permissible_list
         self.permissible_types_list = permissible_types_list
+        self.input_permissible = input_permissible
         if (unit is None and fget is not None
                 and fget.__doc__ is not None and '].' in fget.__doc__):
             doc = fget.__doc__
@@ -179,6 +239,7 @@ class ValueProperty:
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
+        self.ffixed = ffixed
 
     # region Decorators
     def getter(self, fget: Callable) -> ValueProperty:
@@ -187,14 +248,20 @@ class ValueProperty:
         return prop
 
     # ToDo: Figure out type hinting for read access
-    def setter(self, fset: Callable) -> ValueProperty:
+    def setter(self, fset: Callable[[Any], None]) -> ValueProperty:
         prop = self
         prop.fset = fset
+        prop.input_permissible = True
         return prop
 
     def deleter(self, fdel: Callable) -> ValueProperty:
         prop = self
         prop.fdel = fdel
+        return prop
+
+    def fixer(self, ffixed: Callable) -> ValueProperty:
+        prop = self
+        prop.ffixed = ffixed
         return prop
     # endregion
 
@@ -216,12 +283,7 @@ class ValueProperty:
         if isinstance(value, str):
             return value
         elif isinstance(value, (int, float)):
-            value, prefix = scale_value(self.value(instance))
-            unit = self.unit
-            if any([str(i) in unit for i in range(10)]):
-                unit = prefix + '(' + unit + ')'
-            else:
-                unit = prefix + unit
+            value, unit = scale_value_unit(self.value(instance), self.unit)
             return str(value) + ' ' + unit
         else:
             return str(value)
@@ -243,9 +305,12 @@ class ValueProperty:
             return self
         name = self._name_instance
 
-        try:
-            value = instance.__getattribute__(name)
-        except AttributeError:
+        if self.input_permissible:
+            try:
+                value = instance.__getattribute__(name)
+            except AttributeError:
+                value = None
+        else:
             value = None
 
         if value is not None or self.fget is None:
@@ -254,6 +319,9 @@ class ValueProperty:
             return self.fget(instance)
 
     def __set__(self, instance, value) -> None:
+        if not self.input_permissible:
+            raise AttributeError(f"{self.name} does not allow inputs. Set "
+                                 f"input_permissible to True before input.")
         try:
             val_initial = instance.__getattribute__(self._name_instance_reset)
         except AttributeError:
@@ -265,7 +333,10 @@ class ValueProperty:
         else:
             self.fset(instance, value)
 
-        if self._determination_test is not None:
+        if (self._determination_test is not None
+                and not getattr(instance, '_resetting')):
+            # Disable for initialisation, test separately afterward when
+            # the flag is false.
             self._determination_test.test(instance, self._name)
 
         if self.__reset_necessary__(instance, value, val_initial):
@@ -285,15 +356,21 @@ class ValueProperty:
             if same:
                 reset = False
             elif type(value) == type(val_initial):
-                if isinstance(value, int | float):
+                if isinstance(value, str):
+                    reset = True
+                elif isinstance(value, int | float):
                     reset = not np.isclose(
                         value, val_initial,
                         rtol=instance.tolerance * necessity_test, atol=0)
-                if isinstance(value, Iterable | Sized) and (
+                elif isinstance(value, Iterable | Sized) and (
                         len(value) == len(val_initial)):
-                    reset = not all(np.isclose(
-                        value, val_initial,
-                        rtol=instance.tolerance * necessity_test, atol=0))
+                    # noinspection PyUnresolvedReferences
+                    if not isinstance(value[0], float | int | bool):
+                        reset = True  # no proximity check necessary
+                    else:
+                        reset = not all(np.isclose(
+                            value, val_initial,
+                            rtol=instance.tolerance * necessity_test, atol=0))
         return reset
 
     def __delete__(self, instance):
@@ -308,6 +385,8 @@ class ValueProperty:
         name = self._name_instance
         if instance is None:
             return False
+        elif self.ffixed is not None:
+            return self.ffixed(instance)
         elif name in instance.__slots__:
             return instance.__getattribute__(name) is not None
         else:

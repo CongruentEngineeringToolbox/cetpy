@@ -31,7 +31,8 @@ def value_property(equation: str = None,
     """Decorator Factory to create ValueProperties from getter functions."""
 
     if input_permissible is None:
-        if permissible_list is not None or permissible_types_list is not None:
+        if (permissible_list is not None or permissible_types_list is not None
+                or determination_test is not None):
             input_permissible = True
         else:
             input_permissible = False

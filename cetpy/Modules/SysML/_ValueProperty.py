@@ -83,6 +83,8 @@ class DeterminationTest:
         if properties is None:
             properties: List[str] = []
         self.properties = properties
+        if deep_properties is None:
+            deep_properties: List[str] = []
         self.deep_properties = deep_properties
 
     @property

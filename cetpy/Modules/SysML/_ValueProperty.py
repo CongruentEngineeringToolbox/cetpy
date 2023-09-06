@@ -321,14 +321,11 @@ class ValueProperty:
         else:
             return self.fget(instance)
 
-    def __set__(self, instance, value) -> None:
+    def __set_converging_value__(self, instance, value) -> None:
         if not self.input_permissible:
             raise AttributeError(f"{self.name} does not allow inputs. Set "
                                  f"input_permissible to True before input.")
-        try:
-            val_initial = instance.__getattribute__(self._name_instance_reset)
-        except AttributeError:
-            val_initial = None
+
         value = validate_input(value, self.permissible_types_list,
                                self.permissible_list, self._name)
         if self.fset is None:
@@ -342,6 +339,12 @@ class ValueProperty:
             # the flag is false.
             self._determination_test.test(instance, self._name)
 
+    def __set__(self, instance, value) -> None:
+        try:
+            val_initial = instance.__getattribute__(self._name_instance_reset)
+        except AttributeError:
+            val_initial = None
+        self.__set_converging_value__(instance, value)
         if self.__reset_necessary__(instance, value, val_initial):
             instance.__setattr__(self._name_instance_reset, value)
             instance.reset()

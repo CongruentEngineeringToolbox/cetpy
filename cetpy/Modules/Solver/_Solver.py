@@ -32,6 +32,7 @@ class Solver:
         self._resetting = False
         self._last_input = []
         self._hold = 0
+        self._parent = None
         self.parent = parent
         self._tolerance = 0
         if tolerance is None and self.parent is not None:

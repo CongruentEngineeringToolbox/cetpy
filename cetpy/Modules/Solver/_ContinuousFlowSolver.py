@@ -7,26 +7,26 @@ flow systems such as fluid systems.
 
 See Also
 --------
-cetpy.Modules.SysML.ContinuousPort
+cetpy.Modules.SysML.SML.ContinuousPort
 """
 from __future__ import annotations
 
 from typing import List
 import numpy as np
 
-from cetpy.Modules.SysML import Block, FlowProperty, ContinuousPort
+import cetpy.Modules.SysML as SML
 
 from cetpy.Modules.Solver import Solver
 
 
-def apply_transfer(block: Block,
-                   flow_property: FlowProperty,
+def apply_transfer(block: SML.Block,
+                   flow_property: SML.FlowProperty,
                    inlet_port_name: str,
                    outlet_port_name: str,
                    simple_only: bool = False) -> None:
     name = flow_property.__getattribute__('_name')
-    inlet: ContinuousPort = getattr(block, inlet_port_name)
-    outlet: ContinuousPort = getattr(block, outlet_port_name)
+    inlet: SML.ContinuousPort = getattr(block, inlet_port_name)
+    outlet: SML.ContinuousPort = getattr(block, outlet_port_name)
     direction = flow_property.get_direction(inlet)
 
     if direction == 'downstream':
@@ -62,7 +62,7 @@ class ContinuousFlowSolver(Solver):
                  'inlet_port_name', 'outlet_port_name',
                  'boundary_pull_function_name', 'boundary_push_function_name']
 
-    def __init__(self, parent: Block, tolerance: float = None,
+    def __init__(self, parent: SML.Block, tolerance: float = None,
                  parent_solver: ContinuousFlowSolver = None,
                  inlet_port_name: str = '_inlet',
                  outlet_port_name: str = '_outlet',
@@ -91,10 +91,10 @@ class ContinuousFlowSolver(Solver):
             self._ref_port = None
         else:
             try:
-                self._ref_port: ContinuousPort = getattr(
+                self._ref_port: SML.ContinuousPort = getattr(
                     self.parent, self.outlet_port_name)
             except AttributeError:
-                self._ref_port: ContinuousPort = getattr(
+                self._ref_port: SML.ContinuousPort = getattr(
                     self.parent, self.inlet_port_name)
     # endregion
 
@@ -113,13 +113,13 @@ class ContinuousFlowSolver(Solver):
 
     # region Input Properties
     @property
-    def flow_properties(self) -> List[FlowProperty]:
+    def flow_properties(self) -> List[SML.FlowProperty]:
         if self._flow_properties is None:
             self._flow_properties = self._ref_port.__flow_properties__
         return self._flow_properties
 
     @property
-    def ordered_solver_lists(self) -> List[List[Block]]:
+    def ordered_solver_lists(self) -> List[List[SML.Block]]:
         """Lists of connected flow blocks for each flow property in the
         direction of the solver."""
         blocks = self._ref_port.flow_system_list

@@ -70,6 +70,7 @@ class ContinuousFlowSolver(Solver):
                  boundary_push_function_name: str = 'push_boundary_conditions'
                  ) -> None:
         self._flow_properties = None
+        self._parent_solver = None
         super().__init__(parent, tolerance)
         self.parents = [parent]
         self._parent_solver = parent_solver

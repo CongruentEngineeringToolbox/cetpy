@@ -22,9 +22,6 @@ from cetpy.Modules.Solver import ContinuousFlowSolver
 class FluidSolver(ContinuousFlowSolver):
     """Specification of the Solver class to solve a continuous fluid system."""
 
-    __slots__ = ['parents', '_flow_properties', '_parent_solver',
-                 '_sub_solvers']
-
     def __init__(self, parent: FluidBlock, tolerance: float = None,
                  parent_solver: FluidSolver = None) -> None:
         super().__init__(

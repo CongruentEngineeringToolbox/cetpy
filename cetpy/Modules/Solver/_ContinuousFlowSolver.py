@@ -71,13 +71,13 @@ class ContinuousFlowSolver(Solver):
                  ) -> None:
         self._flow_properties = None
         self._parent_solver = None
-        super().__init__(parent, tolerance)
-        self.parents = [parent]
-        self._parent_solver = parent_solver
         self.inlet_port_name = inlet_port_name
         self.outlet_port_name = outlet_port_name
         self.boundary_pull_function_name = boundary_pull_function_name
         self.boundary_push_function_name = boundary_push_function_name
+        super().__init__(parent, tolerance)
+        self.parents = [parent]
+        self._parent_solver = parent_solver
 
     # region System References
     @property
@@ -171,7 +171,8 @@ class ContinuousFlowSolver(Solver):
         super()._pre_solve()
         # Push any new results to end blocks. Do this after setting
         # calculating True so as not to trigger this solver.
-        end_blocks = self._ref_port.flow_system_list[0, -1]
+        blocks = self._ref_port.flow_system_list
+        end_blocks = [blocks[0], blocks[-1]]
         for block in end_blocks:
             try:
                 getattr(block, self.boundary_pull_function_name)()
@@ -235,7 +236,8 @@ class ContinuousFlowSolver(Solver):
         # Push any new results to end blocks. Do this after setting
         # recalculate True so if calculations in the end blocks change the
         # boundary conditions, this solver is reset again.
-        end_blocks = self._ref_port.flow_system_list[0, -1]
+        blocks = self._ref_port.flow_system_list
+        end_blocks = [blocks[0], blocks[-1]]
         for block in end_blocks:
             try:
                 getattr(block, self.boundary_push_function_name)()

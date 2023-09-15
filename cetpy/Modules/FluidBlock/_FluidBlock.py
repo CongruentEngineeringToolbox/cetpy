@@ -2,14 +2,13 @@
 Fluid Block
 ===========
 
-This file implements an extension of the  basic SysML Block to specify
+This file implements an extension of the basic SysML Block to specify
 interactions along a continuous fluid system.
 
 The model is intended for steady-state incompressible flow and is quite rough.
 """
 from __future__ import annotations
 
-from typing import List
 import numpy as np
 
 import cetpy.Modules.SysML as SML
@@ -17,192 +16,22 @@ from cetpy.Modules.SysML import value_property, DeterminationTest
 from cetpy.Modules.Fluid import FluidSkeleton
 from cetpy.Modules.FluidBlock import FluidPort
 
-from cetpy.Modules.Solver import Solver
+from cetpy.Modules.Solver import ContinuousFlowSolver
 
 
-def apply_transfer(block: FluidBlock,
-                   flow_property: SML.FlowProperty,
-                   simple_only: bool = False) -> None:
-    name = flow_property.__getattribute__('_name')
-    inlet = block.inlet_no_solve
-    outlet = block.outlet_no_solve
-    direction = flow_property.get_direction(inlet)
-
-    if direction == 'downstream':
-        source = inlet
-        target = outlet
-        factor = 1
-    else:
-        source = outlet
-        target = inlet
-        factor = -1
-
-    flow_property.__set_converging_value__(
-        target, (flow_property.__get__(source)
-                 + factor * block.__getattribute__(f'_d{name}_stored')))
-    if not simple_only:
-        flow_property.__set_converging_value__(
-            target, (flow_property.__get__(source)
-                     + factor * block.__getattribute__('d' + name)))
-
-
-class FluidSolver(Solver):
+class FluidSolver(ContinuousFlowSolver):
     """Specification of the Solver class to solve a continuous fluid system."""
 
     __slots__ = ['parents', '_flow_properties', '_parent_solver',
                  '_sub_solvers']
 
     def __init__(self, parent: FluidBlock, tolerance: float = None,
-                 parent_solver: FluidSolver = None,
-                 sub_solvers: List[FluidSolver] = None) -> None:
-        self._flow_properties = None
-        super().__init__(parent, tolerance)
-        self.parents = [parent]
-        self._parent_solver = parent_solver
-        if sub_solvers is None:
-            sub_solvers = []
-        self._sub_solvers = sub_solvers
-
-    # region Interface Functions
-    def reset(self, parent_reset: bool = True) -> None:
-        if not self._resetting:
-            self._resetting = True
-            self._recalculate = True
-            if self._parent_solver is not None:
-                self._parent_solver.reset(parent_reset)
-            for sol in self._sub_solvers:
-                sol.reset(parent_reset)
-            # Reset parent instance if desired
-            if parent_reset:
-                self.parent.reset()
-            self._resetting = False
-    # endregion
-
-    # region Input Properties
-    @property
-    def flow_properties(self) -> List[SML.FlowProperty]:
-        if self._flow_properties is None:
-            try:
-                port = self.parent.outlet_no_solve
-            except AttributeError:
-                port = self.parent.inlet_no_solve
-            self._flow_properties = port.__flow_properties__
-        return self._flow_properties
-
-    @property
-    def ordered_solver_lists(self) -> List[List[SML.Block]]:
-        """Lists of connected fluid blocks for each flow property in the
-        direction of the solver."""
-        try:
-            blocks = self.parent.outlet_no_solve.flow_system_list
-        except AttributeError:
-            blocks = self.parent.inlet_no_solve.flow_system_list
-
-        # Drop first and last block from solver list if they don't have to
-        # solve a transfer.
-        try:
-            blocks[0].inlet_no_solve
-        except AttributeError:
-            blocks = blocks[1:]
-
-        try:
-            blocks[-1].outlet_no_solve
-        except AttributeError:
-            blocks = blocks[:-1]
-
-        flow_properties = self.flow_properties
-        ordered_lists = []
-        for fp in flow_properties:
-            fp_direction = fp.get_direction(blocks[-1].inlet_no_solve)
-            if fp_direction == 'upstream':
-                ordered_lists += [blocks.copy()]
-                ordered_lists[-1].reverse()
-            else:
-                ordered_lists += [blocks.copy()]
-        return ordered_lists
-
-    @property
-    def parent_solver(self) -> FluidSolver | None:
-        """Return overarching fluid solver."""
-        return self._parent_solver
-
-    @parent_solver.setter
-    def parent_solver(self, val: FluidSolver | None) -> None:
-        self._parent_solver = val
-        self.reset()
-
-    def add_sub_solver(self, val: FluidSolver) -> None:
-        """Add a new inner sub-solver."""
-        self._sub_solvers += [val]
-        self.reset()
-
-    def remove_sub_solver(self, val: FluidSolver) -> None:
-        """Remove a specific sub-solver from the sub-solver list."""
-        self._sub_solvers.remove(val)
-        self.reset()
-
-    def clear_sub_solvers(self) -> None:
-        """Clear all sub-solvers"""
-        self._sub_solvers = []
-        self.reset()
-    # endregion
-
-    # region Solver Functions
-    def _pre_solve(self) -> None:
-        # Solve top-down -> better performance and ensures the lower solvers
-        # get the correct boundary conditions to start with. Do this before
-        # the calculating flag is set so this solver is run on each parent
-        # solver loop.
-        if self._parent_solver is not None:
-            self._parent_solver.solve()
-        self._calculating = True
-
-    def __solve_simple_step__(self) -> None:
-        """Propagate boundary conditions through fluid system without
-        running any element solvers."""
-        flow_properties = self.flow_properties
-        ordered_lists = self.ordered_solver_lists
-
-        calculating = self.calculating
-        self._calculating = True
-        [[apply_transfer(b, fp, simple_only=True) for b in l]
-         for fp, l in zip(flow_properties, ordered_lists)]
-        self._calculating = calculating
-
-    def _solve_function(self) -> None:
-        """Solve the fluid system transfer functions until convergence."""
-        self.__solve_simple_step__()
-
-        flow_properties = self.flow_properties
-        ordered_lists = self.ordered_solver_lists
-
-        try:
-            ports = self.parent.outlet_no_solve.flow_system_port_list
-        except AttributeError:
-            ports = self.parent.inlet_no_solve.flow_system_port_list
-
-        values_last = np.asarray(
-            [[fp.__get__(p) for p in ports] for fp in flow_properties])
-
-        iteration = 0
-        tolerance = self.tolerance
-        residuals = np.ones((len(flow_properties), len(ports)))
-
-        while np.any(residuals > tolerance):
-            iteration += 1
-            if iteration > 25:
-                raise ValueError(f"Fluid System solver did not converge in"
-                                 f"{iteration - 1} iterations.")
-
-            [[apply_transfer(b, fp) for b in l]
-             for fp, l in zip(flow_properties, ordered_lists)]
-
-            values = np.asarray(
-                [[fp.__get__(p) for p in ports] for fp in flow_properties])
-
-            residuals = np.abs(values - values_last) / values
-            values_last = values
-    # endregion
+                 parent_solver: FluidSolver = None) -> None:
+        super().__init__(
+            parent, tolerance, parent_solver,
+            inlet_port_name='_inlet', outlet_port_name='_outlet',
+            boundary_pull_function_name='pull_fluid_boundary_conditions',
+            boundary_push_function_name='push_fluid_boundary_conditions')
 
 
 class FluidBlock(SML.Block):
@@ -252,11 +81,30 @@ class FluidBlock(SML.Block):
                          tolerance=tolerance,
                          dp_fixed=dp_fixed, dt_fixed=dt_fixed,
                          dmdot_fixed=dmdot_fixed,
+                         inlet_pressure=inlet_pressure,
+                         outlet_pressure=outlet_pressure,
+                         inlet_temperature=inlet_temperature,
+                         outlet_temperature=outlet_temperature,
+                         inlet_mass_flow=inlet_mass_flow,
+                         outlet_mass_flow=outlet_mass_flow,
                          **kwargs)
 
         # region Port References
         # To enable detection of inlet as inlet, otherwise the direction is
         # misidentified.
+        # region Associate config
+        # Only associate config if not an internal point.
+        if upstream is not None:
+            inlet_pressure = self._get_init_parameters('inlet_pressure')
+            inlet_temperature = self._get_init_parameters('inlet_temperature')
+            inlet_mass_flow = self._get_init_parameters('inlet_mass_flow')
+        if downstream is not None:
+            outlet_pressure = self._get_init_parameters('outlet_pressure')
+            outlet_temperature = \
+                self._get_init_parameters('outlet_temperature')
+            outlet_mass_flow = self._get_init_parameters('outlet_mass_flow')
+        # endregion
+
         self._outlet = FluidPort()
         self._inlet = FluidPort(
             downstream=self, flow_item=fluid, tolerance=self.tolerance,

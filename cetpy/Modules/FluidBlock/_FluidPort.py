@@ -79,7 +79,7 @@ class FluidPort(SML.ContinuousPort):
             return
         if val_initial is not None:
             # noinspection PyUnresolvedReferences
-            fluid_solver_copy = copy(val.fluid_solver)
+            fluid_solver_copy = val_initial.fluid_solver.copy()
             fluid_blocks_initial = val_initial.inlet_no_solve.flow_system_list
             fluid_solver_copy.parent = val_initial
             fluid_solver_copy.parents = fluid_blocks_initial

@@ -6,7 +6,10 @@ This file specifies the base Solver class which defines the base structure
 of the decentralised solver architecture.
 """
 
+from __future__ import annotations
+
 from typing import List, Any
+from copy import deepcopy
 
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportSolver
@@ -16,7 +19,7 @@ class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 'parent', '_tolerance', 'report', '_last_input']
+                 '_parent', '_tolerance', 'report', '_last_input']
 
     print = ValuePrinter()
 
@@ -30,13 +33,43 @@ class Solver:
         self._last_input = []
         self._hold = 0
         self.parent = parent
-        if parent is not None and self not in parent.solvers:
-            parent.solvers += [self]
         self._tolerance = 0
         if tolerance is None and self.parent is not None:
             tolerance = self.parent.tolerance
         self.tolerance = tolerance
         self.report = ReportSolver(parent=self)
+
+    # region System References
+    @property
+    def parent(self):
+        """Solver owner block."""
+        return self._parent
+
+    @parent.setter
+    def parent(self, val) -> None:
+        val_initial = self._parent
+        if val_initial == val:
+            return
+        self._parent = val
+        if val_initial is not None:
+            val_initial.solvers.remove(self)
+            val_initial.reset()
+        if val is not None and val not in val.solvers:
+            val.solvers += [self]
+        self.reset()
+
+    def replace(self, val: Solver) -> None:
+        """Replace this solver with a new solver for the parent."""
+        parent = self.parent
+        self.parent = None
+        val.parent = parent
+
+    def copy(self) -> Solver:
+        """Return a copy of this solver without block references."""
+        solver_copy = deepcopy(self)
+        solver_copy.parent = None
+        return solver_copy
+    # endregion
 
     # region Interface Functions
     def reset(self, parent_reset: bool = True) -> None:

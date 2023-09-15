@@ -374,9 +374,12 @@ class ValueProperty:
                     if not isinstance(value[0], float | int | bool):
                         reset = True  # no proximity check necessary
                     else:
-                        reset = not all(np.isclose(
-                            value, val_initial,
-                            rtol=instance.tolerance * necessity_test, atol=0))
+                        try:
+                            reset = not all(np.isclose(
+                                value, val_initial, atol=0,
+                                rtol=instance.tolerance * necessity_test))
+                        except TypeError:
+                            reset = True  # Occurs if None in list.
         return reset
 
     def __delete__(self, instance):

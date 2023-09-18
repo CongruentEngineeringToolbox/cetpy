@@ -115,9 +115,9 @@ class PartProperty:
             add_kwargs = self._additional_kwargs
             if add_kwargs is not None:
                 add_kwargs = add_kwargs.copy()
-                for key, value in add_kwargs.items():
-                    if isinstance(value, str) and 'logic:self.' in value:
-                        add_kwargs[key] = instance.__deep_getattr__(value[11:])
+                for key, val in add_kwargs.items():
+                    if isinstance(val, str) and 'logic:self.' in val:
+                        add_kwargs[key] = instance.__deep_getattr__(val[11:])
                 kwargs.update(add_kwargs)
 
             part = value(name=kwargs.pop('name', self._name), parent=instance,
@@ -199,9 +199,9 @@ class PartsProperty(PartProperty):
             add_kwargs = self._additional_kwargs
             if add_kwargs is not None:
                 add_kwargs = add_kwargs.copy()
-                for key, value in add_kwargs.items():
-                    if isinstance(value, str) and 'logic:self.' in value:
-                        add_kwargs[key] = instance.__deep_getattr__(value[11:])
+                for key, val in add_kwargs.items():
+                    if isinstance(val, str) and 'logic:self.' in val:
+                        add_kwargs[key] = instance.__deep_getattr__(val[11:])
                 kwargs.update(add_kwargs)
 
             parts += [val(name=kwargs.pop('name', self._name) + f"_{i_v}",

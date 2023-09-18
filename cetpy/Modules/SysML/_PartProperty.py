@@ -112,8 +112,9 @@ class PartProperty:
             kwargs.pop('parent', None)  # Remove unwanted inputs of parent.
             kwargs.pop('name', None)
             kwargs.pop('abbreviation', None)
-            add_kwargs = self._additional_kwargs.copy()
+            add_kwargs = self._additional_kwargs
             if add_kwargs is not None:
+                add_kwargs = add_kwargs.copy()
                 for key, value in add_kwargs.items():
                     if isinstance(value, str) and 'logic:self.' in value:
                         add_kwargs[key] = instance.__deep_getattr__(value[11:])
@@ -195,8 +196,9 @@ class PartsProperty(PartProperty):
         parts = []
         for i_v, val in enumerate(value):
             # reevaluate on each property in order to enable chaining.
-            add_kwargs = self._additional_kwargs.copy()
+            add_kwargs = self._additional_kwargs
             if add_kwargs is not None:
+                add_kwargs = add_kwargs.copy()
                 for key, value in add_kwargs.items():
                     if isinstance(value, str) and 'logic:self.' in value:
                         add_kwargs[key] = instance.__deep_getattr__(value[11:])

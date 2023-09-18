@@ -71,12 +71,17 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         permissible_types_list=[list, type(None)])
     output_df_postprocess_function = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=[type(None), Callable])
+    custom_evaluation_function = cetpy.Modules.SysML.ValueProperty(
+        permissible_types_list=[type(None), Callable])
+    enable_default_evaluation = cetpy.Modules.SysML.ValueProperty(
+        permissible_types_list=bool)
 
     __init_parameters__ = \
         cetpy.Modules.SysML.Block.__init_parameters__.copy() + [
             'module', 'save_instances', 'catch_errors',
             'additional_module_kwargs', 'output_properties',
-            'output_df_postprocess_function'
+            'output_df_postprocess_function', 'custom_evaluation_function',
+            'enable_default_evaluation'
         ]
 
     _reset_dict = cetpy.Modules.SysML.Block._reset_dict.copy()
@@ -96,6 +101,10 @@ class CaseRunner(cetpy.Modules.SysML.Block):
                  Callable[[pd.DataFrame], pd.DataFrame] = None,
                  output_df_postprocess_function:
                  Callable[[pd.DataFrame], pd.DataFrame] = None,
+                 custom_evaluation_function:
+                 Callable[[pd.DataFrame, pd.DataFrame,
+                           cetpy.Modules.SysML.Block], None] = None,
+                 enable_default_evaluation: bool = True,
                  **kwargs):
         super().__init__(
             kwargs.pop('name', 'case_runner'),
@@ -105,6 +114,8 @@ class CaseRunner(cetpy.Modules.SysML.Block):
             additional_module_kwargs=additional_module_kwargs,
             output_properties=output_properties,
             output_df_postprocess_function=output_df_postprocess_function,
+            custom_evaluation_function=custom_evaluation_function,
+            enable_default_evaluation=enable_default_evaluation,
             **kwargs)
         self._output_df = None
         self._module_instances = None
@@ -185,13 +196,16 @@ class CaseRunner(cetpy.Modules.SysML.Block):
         df = self.output_df
         i = getattr(case, 'Index')
         instance = self._instance
-        if output_properties is None:
-            instance.solve()
-            for vp in [type(instance).__getattr__(p)
-                       for p in instance.__dir__() if isinstance(
-                    type(instance).__getattr__(p),
-                    cetpy.Modules.SysML.ValueProperty)]:
-                df.loc[i, vp.name] = vp.__get__(instance)
-        else:
-            for col in output_properties:
-                df.loc[i, col] = instance.__deep_getattr__(col)
+        if self.enable_default_evaluation:
+            if output_properties is None:
+                instance.solve()
+                for vp in [type(instance).__getattr__(p)
+                           for p in instance.__dir__() if isinstance(
+                        type(instance).__getattr__(p),
+                        cetpy.Modules.SysML.ValueProperty)]:
+                    df.loc[i, vp.name] = vp.__get__(instance)
+            else:
+                for col in output_properties:
+                    df.loc[i, col] = instance.__deep_getattr__(col)
+        if self.custom_evaluation_function is not None:
+            self.custom_evaluation_function(df, case, instance)

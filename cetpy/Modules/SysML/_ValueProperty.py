@@ -26,7 +26,8 @@ def value_property(equation: str = None,
                    necessity_test: float = 0.1,
                    permissible_list: None | List | Tuple = None,
                    permissible_types_list: None | type | List = None,
-                   input_permissible: bool = None
+                   input_permissible: bool = None,
+                   no_reset: bool = False
                    ) -> Callable[[Callable], ValueProperty]:
     """Decorator Factory to create ValueProperties from getter functions."""
 
@@ -44,7 +45,8 @@ def value_property(equation: str = None,
                              necessity_test=necessity_test,
                              permissible_list=permissible_list,
                              permissible_types_list=permissible_types_list,
-                             input_permissible=input_permissible)
+                             input_permissible=input_permissible,
+                             no_reset=no_reset)
         return prop
 
     return decorator
@@ -172,8 +174,8 @@ class DeterminationTest:
         # noinspection PyUnresolvedReferences
         cetpy.active_session.logger.warning(
             f"{instance.name_display} is {direction}determined. Of "
-            f"{', '.join(self.properties)} {n_target} must be set. "
-            f"Currently {n_actual} are set.{amendment}")
+            f"{', '.join(self.properties + self.deep_properties)} {n_target} "
+            f"must be set. Currently {n_actual} are set.{amendment}")
 
 
 class ValuePropertyDoc:
@@ -199,7 +201,7 @@ class ValueProperty:
                  '_determination_test', '_necessity_test', 'equation',
                  '_unit', '_axis_label', 'fget', 'fset', 'fdel', 'ffixed',
                  '_permissible_list', '_permissible_types_list',
-                 'input_permissible']
+                 'input_permissible', 'no_reset']
 
     __doc__ = ValuePropertyDoc()
 
@@ -212,7 +214,8 @@ class ValueProperty:
                  necessity_test: float = 0.1,
                  permissible_list: None | List | Tuple = None,
                  permissible_types_list: None | type | List = None,
-                 input_permissible: bool = True) -> None:
+                 input_permissible: bool = True,
+                 no_reset: bool = False) -> None:
         self._determination_test = None
         self._necessity_test = None
         self._permissible_list = None
@@ -226,6 +229,7 @@ class ValueProperty:
         self.permissible_list = permissible_list
         self.permissible_types_list = permissible_types_list
         self.input_permissible = input_permissible
+        self.no_reset = no_reset
         if (unit is None and fget is not None
                 and fget.__doc__ is not None and '].' in fget.__doc__):
             doc = fget.__doc__
@@ -353,6 +357,8 @@ class ValueProperty:
         """Return bool if a reset should be performed on an instance if the
         initial value is changed to value.
         """
+        if self.no_reset:
+            return False
         necessity_test = self.necessity_test
         reset = True
         if necessity_test >= 0:
@@ -368,6 +374,13 @@ class ValueProperty:
                     reset = not np.isclose(
                         value, val_initial,
                         rtol=instance.tolerance * necessity_test, atol=0)
+                elif isinstance(value, dict) and (
+                        len(value) == len(val_initial)) and all([
+                        k in val_initial.keys() for k in value.keys()]):
+                    reset = not all([np.isclose(value[k], val_initial[k])
+                                     if isinstance(value[k], float | int)
+                                     else value[k] == val_initial[k]
+                                     for k in value.keys()])
                 elif isinstance(value, Iterable | Sized) and (
                         len(value) == len(val_initial)):
                     # noinspection PyUnresolvedReferences

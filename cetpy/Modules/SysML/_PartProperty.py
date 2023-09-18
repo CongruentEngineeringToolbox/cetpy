@@ -38,8 +38,8 @@ class PartPropertyDoc:
 
 
 class PartProperty:
-    """SysML ValueProperty which adds units of measure and error
-    calculation."""
+    """SysML PartProperty which handles the loading and swapping of system
+    parts and part models."""
     __slots__ = ['_name', '_name_instance', '_super_class', '_allowed_list',
                  '_additional_kwargs']
 
@@ -109,8 +109,15 @@ class PartProperty:
             initial_part = self.__get__(instance)
 
             kwargs = instance.__init_kwargs__
-            if self._additional_kwargs is not None:
-                kwargs.update(self._additional_kwargs)
+            kwargs.pop('parent', None)  # Remove unwanted inputs of parent.
+            kwargs.pop('name', None)
+            kwargs.pop('abbreviation', None)
+            add_kwargs = self._additional_kwargs.copy()
+            if add_kwargs is not None:
+                for key, value in add_kwargs.items():
+                    if isinstance(value, str) and 'logic:self.' in value:
+                        add_kwargs[key] = instance.__deep_getattr__(value[11:])
+                kwargs.update(add_kwargs)
 
             part = value(name=kwargs.pop('name', self._name), parent=instance,
                          **kwargs)
@@ -181,11 +188,20 @@ class PartsProperty(PartProperty):
         initial_parts = self.__get__(instance)
 
         kwargs = instance.__init_kwargs__
-        if self._additional_kwargs is not None:
-            kwargs.update(self._additional_kwargs)
+        kwargs.pop('parent', None)
+        kwargs.pop('name', None)
+        kwargs.pop('abbreviation', None)
 
         parts = []
         for i_v, val in enumerate(value):
+            # reevaluate on each property in order to enable chaining.
+            add_kwargs = self._additional_kwargs.copy()
+            if add_kwargs is not None:
+                for key, value in add_kwargs.items():
+                    if isinstance(value, str) and 'logic:self.' in value:
+                        add_kwargs[key] = instance.__deep_getattr__(value[11:])
+                kwargs.update(add_kwargs)
+
             parts += [val(name=kwargs.pop('name', self._name) + f"_{i_v}",
                           parent=instance, **kwargs)]
 

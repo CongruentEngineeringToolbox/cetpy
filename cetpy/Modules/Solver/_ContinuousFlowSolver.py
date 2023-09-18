@@ -213,7 +213,8 @@ class ContinuousFlowSolver(Solver):
         while np.any(residuals > tolerance):
             iteration += 1
             if iteration > 25:
-                raise ValueError(f"Flow System solver did not converge in"
+                self._calculating = False
+                raise ValueError(f"Flow System solver did not converge in "
                                  f"{iteration - 1} iterations.")
 
             [[apply_transfer(b, fp, inlet_name, outlet_name) for b in l]
@@ -227,7 +228,7 @@ class ContinuousFlowSolver(Solver):
             # Zero must be an exact match
             residuals[~idx_zero] = np.abs(
                 values - values_last)[~idx_zero] / values[~idx_zero]
-            residuals[idx_zero] = values_last[idx_zero] == 0
+            residuals[idx_zero] = values_last[idx_zero] != 0
 
             values_last = values
 

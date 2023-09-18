@@ -311,13 +311,14 @@ class Block:
         This should only be used to get the program unstuck as it undermines
         recursion stops and deletes any progress made.
         """
-        self._resetting = False
+        self._resetting = True  # Set True while resetting parts
         for key, val in self._hard_reset_dict.items():
             self.__setattr__(key, val)
         for solver in self.solvers:
             solver.hard_reset(convergence_reset)
         for p in self.parts:
             p.hard_reset(convergence_reset)
+        self._resetting = False
         self.reset()
     # endregion
 

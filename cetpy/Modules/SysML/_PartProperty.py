@@ -118,6 +118,8 @@ class PartProperty:
                 for key, val in add_kwargs.items():
                     if isinstance(val, str) and 'logic:self.' in val:
                         add_kwargs[key] = instance.__deep_getattr__(val[11:])
+                    elif isinstance(val, str) and 'logic:kwargs:' in val:
+                        add_kwargs[key] = kwargs.get(val[13:], None)
                 kwargs.update(add_kwargs)
 
             part = value(name=kwargs.pop('name', self._name), parent=instance,
@@ -202,6 +204,8 @@ class PartsProperty(PartProperty):
                 for key, val in add_kwargs.items():
                     if isinstance(val, str) and 'logic:self.' in val:
                         add_kwargs[key] = instance.__deep_getattr__(val[11:])
+                    elif isinstance(val, str) and 'logic:kwargs:' in val:
+                        add_kwargs[key] = kwargs.get(val[13:], None)
                 kwargs.update(add_kwargs)
 
             parts += [val(name=kwargs.pop('name', self._name) + f"_{i_v}",

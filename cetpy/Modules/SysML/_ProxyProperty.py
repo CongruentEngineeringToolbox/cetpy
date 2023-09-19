@@ -1,8 +1,8 @@
 """
-PassthroughProperty
-===================
+ProxyProperty
+=============
 
-This file implements a Passthrough Property, this property simply passes a
+This file implements a Proxy Property, this property simply passes a
 ValueProperty of a part through to its parent without further modification.
 The purpose is accessibility. Making the specific part property accessible
 to the user at a higher system structure level, while minimizing developer
@@ -14,8 +14,8 @@ from __future__ import annotations
 from cetpy.Modules.Utilities.Labelling import name_2_display
 
 
-class PassthroughPropertyDoc:
-    """Simple Descriptor to pass a more detailed doc string to a passthrough
+class ProxyPropertyDoc:
+    """Simple Descriptor to pass a more detailed doc string to a proxy
     property."""
 
     def __get__(self, instance, owner=None):
@@ -30,12 +30,12 @@ class PassthroughPropertyDoc:
         pass
 
 
-class PassthroughProperty:
-    """PassthroughProperty which makes a part's property accessible on the
+class ProxyProperty:
+    """ProxyProperty which makes a part's property accessible on the
     parent level."""
     __slots__ = ['_name', 'part_name']
 
-    __doc__ = PassthroughPropertyDoc()
+    __doc__ = ProxyPropertyDoc()
 
     def __init__(self, part_name: str,
                  part_property_name: str | None = None) -> None:

@@ -104,7 +104,7 @@ class DeterminationTest:
         n_deep = 0
         for key in self.deep_properties:
             try:
-                vp = instance.__ddep_get_vp__(key)
+                vp = instance.__deep_get_vp__(key)
                 ref = instance.__deep_getattr__(".".join(key.split(".")[:-1]))
                 if vp.determination_test is not None:
                     n_deep += vp.determination_test.n_determination(ref) + 1
@@ -124,8 +124,13 @@ class DeterminationTest:
         return [n for n in self.properties
                 if not getattr(type(instance), n).fixed(instance)]
 
+    def actual(self, instance) -> List[str]:
+        """Inputs currently defined. Does not include deep attributes."""
+        return [n for n in self.properties
+                if getattr(type(instance), n).fixed(instance)]
+
     def n_actual(self, instance) -> int:
-        """Number of input currently defined."""
+        """Number of inputs currently defined."""
         return sum([getattr(type(instance), n).fixed(instance)
                     for n in self.properties]) + self.n_actual_deep(instance)
 
@@ -158,8 +163,10 @@ class DeterminationTest:
         elif n_actual > n_target:
             direction = 'over-'
             if self.auto_fix and self._num == 1:
-                [instance.__setattr__(n, None) for n in self.properties
-                 if n != new]
+                cls = type(instance)
+                actual = self.actual(instance)
+                [getattr(cls, n).__set_converging_value__(None)
+                 for n in self.properties if n != new and n in actual]
                 # noinspection PyUnresolvedReferences
                 cetpy.active_session.logger.info(
                     f"Autocorrected {instance.name_display} "
@@ -367,7 +374,9 @@ class ValueProperty:
                 same = all(same)
             if same:
                 reset = False
-            elif type(value) == type(val_initial):
+            elif type(value) == type(val_initial) or all(
+                    [isinstance(v, int | float | bool)
+                     for v in [value, val_initial]]):
                 if isinstance(value, str):
                     reset = True
                 elif isinstance(value, int | float):

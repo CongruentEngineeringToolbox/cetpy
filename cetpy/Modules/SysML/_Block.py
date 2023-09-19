@@ -362,7 +362,7 @@ class Block:
 
             # First get all values to not retrigger a solve after every setting
             values = [vp.__get__(self) for vp in vp_not_fixed]
-            [vp.__set__(self, value)
+            [vp.__set_converging_value__(self, value)
              for vp, value in zip(vp_not_fixed, values)]
         else:
             val_dict = {}

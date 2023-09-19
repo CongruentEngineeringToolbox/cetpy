@@ -165,7 +165,7 @@ class DeterminationTest:
             if self.auto_fix and self._num == 1:
                 cls = type(instance)
                 actual = self.actual(instance)
-                [getattr(cls, n).__set_converging_value__(None)
+                [getattr(cls, n).__set_converging_value__(instance, None)
                  for n in self.properties if n != new and n in actual]
                 # noinspection PyUnresolvedReferences
                 cetpy.active_session.logger.info(

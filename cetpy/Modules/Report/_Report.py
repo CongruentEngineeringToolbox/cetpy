@@ -151,37 +151,37 @@ class Report:
         lines += [header.center(80, '=') + '\n']
         lines += ['=' * 80 + '\n']
 
-        lines += ['Name: {:>23s}\n'.format(block.name_display)]
-        lines += ['Abbreviation: {:>15s}\n'.format(block.abbreviation)]
-        lines += ['Class: {:>22s}\n'.format(type(block).__name__)]
+        lines += ['Name: {:>33s}\n'.format(block.name_display)]
+        lines += ['Abbreviation: {:>25s}\n'.format(block.abbreviation)]
+        lines += ['Class: {:>32s}\n'.format(type(block).__name__)]
         if block.parent is not None:
-            lines += ['Parent: {:>21s}\n'.format(block.parent.name_display)]
-        lines += ['# Solvers: {:>18d}\n'.format(len(solvers))]
-        lines += ['# Ports: {:>20d}\n'.format(len(ports))]
-        lines += ['# Parts: {:>20d}\n'.format(len(parts))]
+            lines += ['Parent: {:>31s}\n'.format(block.parent.name_display)]
+        lines += ['# Solvers: {:>28d}\n'.format(len(solvers))]
+        lines += ['# Ports: {:>30d}\n'.format(len(ports))]
+        lines += ['# Parts: {:>30d}\n'.format(len(parts))]
 
         if len(solvers) > 0:
-            solver_lines = ['Solvers: {:20s}\n'.format(
+            solver_lines = ['Solvers: {:30s}\n'.format(
                 solvers[0].__class__.__name__)]
             for sol in solvers[1:]:
-                solver_lines += ['         {:20s}\n'.format(
+                solver_lines += ['         {:30s}\n'.format(
                     sol.__class__.__name__)]
             lines += solver_lines
         if len(ports) > 0:
-            ports_lines = ['Ports: {:22s}\n'.format(
+            ports_lines = ['Ports: {:32s}\n'.format(
                 ports[0].__class__.__name__)]
             for port in ports[1:]:
-                ports_lines += ['       {:22s}\n'.format(
+                ports_lines += ['       {:32s}\n'.format(
                     port.__class__.__name__)]
             lines += ports_lines
         if len(parts) > 0:
-            parts_lines = ['Parts: {:22s}\n'.format(
+            parts_lines = ['Parts: {:32s}\n'.format(
                 parts[0].name_display)]
             for part in parts[1:]:
-                parts_lines += ['       {:22s}\n'.format(
+                parts_lines += ['       {:32s}\n'.format(
                     part.name_display)]
             lines += parts_lines
-        lines += ['Tolerance: {:>18.2e}\n'.format(block.tolerance)]
+        lines += ['Tolerance: {:>28.2e}\n'.format(block.tolerance)]
 
         return lines
 
@@ -206,7 +206,8 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
                 lines += ["{:25s}: {:15s}\n".format(
@@ -235,7 +236,8 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
                 lines += ["{:25s}: {:15s}\n".format(

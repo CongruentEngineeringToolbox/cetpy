@@ -402,11 +402,11 @@ class Block:
         if val < self._tolerance:
             self.reset()
         self._tolerance = val
-        for p in [p for p in self.parts if p.tolerance > val]:
+        for p in [p for p in self.parts]:
             p.tolerance = val
-        for s in [s for s in self.solvers if s.tolerance > val]:
+        for s in [s for s in self.solvers]:
             s.tolerance = val
-        for p in [p for p in self.ports if p.tolerance > val]:
+        for p in [p for p in self.ports]:
             p.tolerance = val
     # endregion
 

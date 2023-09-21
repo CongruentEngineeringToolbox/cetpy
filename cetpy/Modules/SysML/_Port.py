@@ -86,6 +86,9 @@ class Port:
             port_copy.__setattr__(opposite_name, val_initial)
             val_initial.reset()
         if val is not None:
+            port_initial = val.__getattribute__(dict_name)
+            if port_initial is not None and port_initial in val.ports:
+                val.ports.remove(port_initial)
             val.ports += [self]
             val.__setattr__(dict_name, self)
             val.reset()

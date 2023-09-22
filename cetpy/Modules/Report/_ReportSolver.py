@@ -28,8 +28,9 @@ class ReportSolver(Report):
         lines += ['\n']
         lines += self.__get_report_output_text__()
 
+        lines += ['\n']
         header = ' ' + self._parent.__class__.__name__ + ' Complete '
-        lines += ['\n' + header.center(80, '-') + '\n']
+        lines += [header.center(80, '-') + '\n\n']
         return lines
 
     def __get_report_header_text__(self) -> List[str]:
@@ -37,15 +38,17 @@ class ReportSolver(Report):
 
         lines = []
 
-        lines += ['=' * 80 + '\n']
+        lines += ['-' * 80 + '\n']
         header = ' ' + solver.__class__.__name__ + ' '
         lines += [header.center(80, '=') + '\n']
-        lines += ['=' * 80 + '\n']
+        lines += ['-' * 80 + '\n']
 
         lines += ['Name: {:>23s}\n'.format(solver.__class__.__name__)]
         if solver.parent is not None:
             lines += ['Parent: {:>21s}\n'.format(solver.parent.name_display)]
         lines += ['Tolerance: {:>18.2e}\n'.format(solver.tolerance)]
+        lines += ['Solved: {:>21s}\n'.format(solver.solved)]
+        lines += ['Calculating: {:>16s}\n'.format(solver.calculating)]
 
         return lines
     # endregion

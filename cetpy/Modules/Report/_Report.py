@@ -133,8 +133,9 @@ class Report:
                 ' ' + block.name_display + "'s Port Reports Complete ")
             lines += ['  ' + ports_header.center(80, '-') + '\n\n']
 
+        lines += ['\n']
         header = ' ' + self._parent.name_display + ' Complete '
-        lines += ['\n' + header.center(80, '-') + '\n']
+        lines += [header.center(80, '-') + '\n\n\n']
         return lines
 
     def __get_report_header_text__(self) -> List[str]:

@@ -79,7 +79,7 @@ class Solver:
             self._resetting = True
             self._recalculate = True
             # Reset parent instance if desired
-            if parent_reset:
+            if parent_reset and self.parent is not None:
                 self.parent.reset()
             self._resetting = False
 

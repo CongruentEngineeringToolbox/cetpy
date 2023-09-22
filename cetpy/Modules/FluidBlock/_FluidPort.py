@@ -46,6 +46,7 @@ class FluidPort(SML.ContinuousPort):
                          flow_item=flow_item,
                          upstream_dict_name='_outlet',
                          downstream_dict_name='_inlet',
+                         solver_dict_name='fluid_solver',
                          tolerance=tolerance)
         self._area_mode = 'fixed'
         self._area = None
@@ -69,38 +70,12 @@ class FluidPort(SML.ContinuousPort):
             self.__class__.mdot.__set_converging_value__(self, 0)
 
     # region System References
-    def _update_reference(self, reference: str,
-                          val: SML.Block | None):
-        val_initial = self.__getattribute__(reference)
-        SML.ContinuousPort._update_reference(self, reference, val)
-
-        if val is val_initial:
-            return
-        if val_initial is not None:
-            # noinspection PyUnresolvedReferences
-            fluid_solver_copy = val_initial.fluid_solver.copy()
-            fluid_blocks_initial = val_initial.inlet_no_solve.flow_system_list
-            fluid_solver_copy.parent = val_initial
-            fluid_solver_copy.parents = fluid_blocks_initial
-            for fb in fluid_blocks_initial:
-                fb.fluid_solver.replace(fluid_solver_copy)
-
-        if val is not None:
-            # noinspection PyUnresolvedReferences
-            fluid_blocks = val.inlet_no_solve.flow_system_list
-            # noinspection PyUnresolvedReferences
-            fluid_solver = val.fluid_solver
-            fluid_solver.parent = val
-            fluid_solver.parents = fluid_blocks
-            for fb in fluid_blocks:
-                fb.fluid_solver.replace(fluid_solver)
-
     def __copy_unlinked__(self) -> FluidPort:
         # noinspection PyPropertyAccess
         port = FluidPort(name=self.name,
                          flow_item=self.flow_item,
                          area_mode=self.area_mode,
-                         area=self.area)
+                         area=self._area)
         for fp in self.__flow_properties__:
             # noinspection PyProtectedMember
             for prop in [fp._name_instance, fp._name_instance_input,
@@ -129,7 +104,7 @@ class FluidPort(SML.ContinuousPort):
             return self._downstream.__getattribute__('area')
 
     @area.setter
-    def area(self, val: float) -> None:
+    def area(self, val: float | None) -> None:
         self._area = val
         if val is not None:
             self.area_mode = 'fixed'

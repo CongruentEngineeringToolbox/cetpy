@@ -79,16 +79,14 @@ class Port:
             port_copy = self.__copy_unlinked__()
             val_initial.ports += [port_copy]
             val_initial.__setattr__(dict_name, port_copy)
-            if reference == '_upstream':
-                opposite_name = '_downstream'
-            else:
-                opposite_name = '_upstream'
-            port_copy.__setattr__(opposite_name, val_initial)
+            port_copy.__setattr__(reference, val_initial)
             val_initial.reset()
         if val is not None:
             port_initial = val.__getattribute__(dict_name)
             if port_initial is not None and port_initial in val.ports:
                 val.ports.remove(port_initial)
+                port_initial.__setattr__(reference, None)
+                port_initial.reset()
             val.ports += [self]
             val.__setattr__(dict_name, self)
             val.reset()

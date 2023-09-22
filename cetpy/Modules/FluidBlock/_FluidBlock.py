@@ -25,7 +25,7 @@ class FluidSolver(ContinuousFlowSolver):
     def __init__(self, parent: FluidBlock, tolerance: float = None,
                  parent_solver: FluidSolver = None) -> None:
         super().__init__(
-            parent, tolerance, parent_solver,
+            parent, tolerance, parent_solver, dict_name='fluid_solver',
             inlet_port_name='_inlet', outlet_port_name='_outlet',
             boundary_pull_function_name='pull_fluid_boundary_conditions',
             boundary_push_function_name='push_fluid_boundary_conditions')

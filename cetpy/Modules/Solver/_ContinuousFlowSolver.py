@@ -58,12 +58,13 @@ def apply_transfer(block: SML.Block,
 class ContinuousFlowSolver(Solver):
     """Specification of the Solver class to solve a continuous flow system."""
 
-    __slots__ = ['parents', '_flow_properties', '_parent_solver', '_ref_port',
-                 'inlet_port_name', 'outlet_port_name',
+    __slots__ = ['_parents', '_flow_properties', '_parent_solver', '_ref_port',
+                 'dict_name', 'inlet_port_name', 'outlet_port_name',
                  'boundary_pull_function_name', 'boundary_push_function_name']
 
     def __init__(self, parent: SML.Block, tolerance: float = None,
                  parent_solver: ContinuousFlowSolver = None,
+                 dict_name: str = 'solver',
                  inlet_port_name: str = '_inlet',
                  outlet_port_name: str = '_outlet',
                  boundary_pull_function_name: str = 'pull_boundary_conditions',
@@ -71,6 +72,7 @@ class ContinuousFlowSolver(Solver):
                  ) -> None:
         self._flow_properties = None
         self._parent_solver = None
+        self.dict_name = dict_name
         self.inlet_port_name = inlet_port_name
         self.outlet_port_name = outlet_port_name
         self.boundary_pull_function_name = boundary_pull_function_name
@@ -82,7 +84,6 @@ class ContinuousFlowSolver(Solver):
     # region System References
     @property
     def parent(self):
-        """Solver owner block."""
         return super().parent
 
     @parent.setter
@@ -97,6 +98,30 @@ class ContinuousFlowSolver(Solver):
             except AttributeError:
                 self._ref_port: SML.ContinuousPort = getattr(
                     self.parent, self.inlet_port_name)
+            self.parents = self._ref_port.flow_system_list
+
+    @property
+    def parents(self):
+        """All associated parent blocks which share this solver."""
+        return self._parents
+
+    @parents.setter
+    def parents(self, val) -> None:
+        self._parents = val
+        for b in self._parents:
+            try:
+                val_initial = getattr(b, self.dict_name)
+                if val_initial is not self:
+                    b.solvers.remove(val_initial)
+                    try:
+                        val_initial.parents.remove(b)
+                    except ValueError:
+                        pass
+            except AttributeError:
+                pass
+            setattr(b, self.dict_name, self)
+            if self not in b.solvers:
+                b.solvers += [self]
     # endregion
 
     # region Interface Functions

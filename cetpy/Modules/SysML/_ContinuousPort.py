@@ -19,7 +19,7 @@ class ContinuousPort(SML.Port):
     such as fluid flow."""
 
     __slots__ = ['_upstream_list', '_upstream_port_list', '_downstream_list',
-                 '_downstream_port_list']
+                 '_downstream_port_list', 'solver_dict_name']
 
     def __init__(self,
                  upstream: SML.Block | None = None,
@@ -27,6 +27,7 @@ class ContinuousPort(SML.Port):
                  name: str = None, flow_item: object | None = None,
                  upstream_dict_name: str = None,
                  downstream_dict_name: str = None,
+                 solver_dict_name: str = 'solver',
                  tolerance: float = None):
         self._upstream_list = None
         self._upstream_port_list = None
@@ -39,11 +40,18 @@ class ContinuousPort(SML.Port):
                          upstream_dict_name=upstream_dict_name,
                          downstream_dict_name=downstream_dict_name,
                          tolerance=tolerance)
+        self.solver_dict_name = solver_dict_name
 
     # region System References
     def _update_reference(self, reference: str,
                           val: SML.Block | None):
         val_initial = self.__getattribute__(reference)
+        dict_name = self.__getattribute__(reference + '_dict_name')
+        if val is not None:
+            port_initial = val.__getattribute__(dict_name)
+        else:
+            port_initial = None
+
         SML.Port._update_reference(self, reference, val)
 
         if val is val_initial:
@@ -64,6 +72,34 @@ class ContinuousPort(SML.Port):
             opposite_name = '_downstream'
         else:
             opposite_name = '_upstream'
+
+        # Regenerate port list of old connections of newly connected port.
+        if port_initial is not None:
+            getattr(port_initial, '__generate' + opposite_name + '_list__')()
+            try:
+                if reference == '_upstream':
+                    port_initial_opposite_end = \
+                        port_initial.downstream_port_list[-1]
+                else:
+                    port_initial_opposite_end = \
+                        port_initial.upstream_port_list[0]
+                getattr(port_initial_opposite_end,
+                        '__generate' + reference + '_list__')()
+            except IndexError:
+                pass  # no other connected blocks, port is forgotten.
+
+        if val is val_initial:
+            return
+
+        if val_initial is not None:
+            solver_initial = getattr(val_initial, self.solver_dict_name)
+            solver_copy = solver_initial.copy()
+            solver_copy.parent = val_initial
+
+        if val is not None:
+            getattr(val, self.solver_dict_name).replace(
+                getattr(val, self.solver_dict_name))
+
         try:
             opposite = val.__getattribute__(self.__getattribute__(
                 opposite_name + '_dict_name'))

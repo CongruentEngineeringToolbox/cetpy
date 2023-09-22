@@ -107,7 +107,7 @@ class ContinuousFlowSolver(Solver):
             if self._parent_solver is not None:
                 self._parent_solver.reset(parent_reset)
             # Reset parent instance if desired
-            if parent_reset:
+            if parent_reset and self.parent is not None:
                 self.parent.reset()
             self._resetting = False
     # endregion

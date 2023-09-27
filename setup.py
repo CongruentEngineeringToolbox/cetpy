@@ -37,6 +37,6 @@ setup(
         'pytest',
         'matplotlib',
         'statsmodels',
-        'sklearn'
+        'scikit-learn'
     ],
 )

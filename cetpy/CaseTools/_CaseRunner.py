@@ -37,6 +37,7 @@ class CaseSolver(cetpy.Modules.Solver.Solver):
                 try:
                     runner.__initialise_case__(case)
                     runner.__evaluate_case__(case)
+                    output_df.loc[i, 'solved'] = True
                 except Exception as err:
                     output_df.loc[i, 'solved'] = True
                     output_df.loc[i, 'errored'] = True

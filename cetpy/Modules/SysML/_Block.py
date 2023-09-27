@@ -12,7 +12,7 @@ SysML Documentation:
 
 from __future__ import annotations
 
-from typing import List, Any
+from typing import List, Any, Dict
 
 import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, \
@@ -41,11 +41,11 @@ class Block:
                  'parts', 'ports', 'requirements', 'solvers',
                  '_get_init_parameters', '__init_kwargs__', '__dict__']
 
-    __init_parameters__ = []
-    __init_parts__ = []
-    _reset_dict = {}
-    _hard_reset_dict = {}
-    __fixed_parameters__ = []
+    __init_parameters__: List[str] = []
+    __init_parts__: List[str] = []
+    _reset_dict: Dict[str, Any] = {}
+    _hard_reset_dict: Dict[str, Any] = {}
+    __fixed_parameters__: List[str] = []
     _bool_parent_reset = True
 
     print = ValuePrinter()

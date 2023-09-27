@@ -47,8 +47,8 @@ class ReportSolver(Report):
         if solver.parent is not None:
             lines += ['Parent: {:>21s}\n'.format(solver.parent.name_display)]
         lines += ['Tolerance: {:>18.2e}\n'.format(solver.tolerance)]
-        lines += ['Solved: {:>21s}\n'.format(solver.solved)]
-        lines += ['Calculating: {:>16s}\n'.format(solver.calculating)]
+        lines += ['Solved: {:>21s}\n'.format(str(solver.solved))]
+        lines += ['Calculating: {:>16s}\n'.format(str(solver.calculating))]
 
         return lines
     # endregion

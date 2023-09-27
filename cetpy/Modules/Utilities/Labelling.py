@@ -323,3 +323,160 @@ def scale_value_unit(value: float, unit: str) -> (float, str):
                 return value, unit
         else:
             return value, prefix + '(' + unit + ')'
+
+
+def round_sig_figs(value: float, sig_figs: int) -> float:
+    """Round a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a float -> str format -> float conversion, so should
+    be considered to be slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> round_sig_figs(1267, 2)
+    1300.0
+
+    >>> round_sig_figs(576000, 4)
+    576000.0
+
+    >>> round_sig_figs(354.387290, 5)
+    354.39
+
+    >>> round_sig_figs(24.2450, 3)
+    24.2
+
+    >>> round_sig_figs(1.289, 1)
+    1.0
+
+    Machine number rounding errors still apply. Here 0.075 in floating point
+    numbers is represented as 0.074999 ... 999 so the round evalues to 0.07
+    >>> round_sig_figs(0.075, 1)
+    0.07
+    """
+    return float('{:.{p}g}'.format(value, p=sig_figs))
+
+
+def ceil_sig_figs(value: float, sig_figs: int) -> float:
+    """Round up a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a series of float -> str format -> float conversion,
+    so should be considered to be very slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> ceil_sig_figs(1267, 2)
+    1300.0
+
+    >>> ceil_sig_figs(576000, 4)
+    576000.0
+
+    >>> ceil_sig_figs(354.387290, 5)
+    354.39
+
+    >>> ceil_sig_figs(24.2450, 3)
+    24.3
+
+    >>> ceil_sig_figs(1.289, 1)
+    2.0
+    """
+    value_new = float('{:.{p}g}'.format(value, p=sig_figs))
+    if value_new >= value:
+        return value_new
+    else:
+        offset = 10. ** np.arange(-10, 10)
+        value_new = [float('{:.{p}g}'.format(value + o, p=sig_figs))
+                     for o in offset]
+        return min([v for v in value_new if v > value])
+
+
+def floor_sig_figs(value: float, sig_figs: int) -> float:
+    """Round up a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a series of float -> str format -> float conversion,
+    so should be considered to be very slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> floor_sig_figs(1267, 2)
+    1200.0
+
+    >>> floor_sig_figs(576000, 4)
+    576000.0
+
+    >>> floor_sig_figs(354.387290, 5)
+    354.38
+
+    >>> floor_sig_figs(24.2450, 3)
+    24.2
+
+    >>> floor_sig_figs(1.289, 1)
+    1.0
+    """
+    value_new = float('{:.{p}g}'.format(value, p=sig_figs))
+    if value_new <= value:
+        return value_new
+    else:
+        offset = 10. ** np.arange(-10, 10)
+        value_new = [float('{:.{p}g}'.format(value - o, p=sig_figs))
+                     for o in offset]
+        return max([v for v in value_new if v < value])

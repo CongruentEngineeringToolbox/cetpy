@@ -16,7 +16,7 @@ from cetpy.Modules.Report import ReportPort
 class Port:
     """SysML Port element."""
     __slots__ = ['_upstream', '_downstream', '_upstream_dict_name',
-                 '_downstream_dict_name', 'name', 'parent', '_flow_item',
+                 '_downstream_dict_name', '_name', 'parent', '_flow_item',
                  '_resetting', '_tolerance', '__dict__']
 
     __flow_properties__ = []
@@ -49,6 +49,18 @@ class Port:
         self.report = ReportPort(parent=self)
 
     # region System References
+    @property
+    def name(self) -> str:
+        """Port name."""
+        if self._name is None:
+            return type(self).__name__
+        else:
+            return self._name
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
     @property
     def upstream(self) -> cetpy.Modules.SysML.Block | None:
         """Port upstream element."""

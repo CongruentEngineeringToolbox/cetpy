@@ -8,7 +8,7 @@ of the decentralised solver architecture.
 
 from __future__ import annotations
 
-from typing import List, Any
+from typing import List, Any, Dict
 from copy import deepcopy
 
 from cetpy.Modules.SysML import ValuePrinter
@@ -25,6 +25,7 @@ class Solver:
 
     input_keys: List[str] = []
     convergence_keys: List[str] = []
+    _reset_dict: Dict[str, Any] = {}
 
     def __init__(self, parent, tolerance: float = None):
         self._recalculate = True
@@ -41,6 +42,11 @@ class Solver:
         self.report = ReportSolver(parent=self)
 
     # region System References
+    @property
+    def name(self) -> str:
+        """Solver name."""
+        return type(self).__name__
+
     @property
     def parent(self):
         """Solver owner block."""
@@ -77,11 +83,18 @@ class Solver:
         """Tell the solver to resolve before the next value output."""
         if not self._resetting:
             self._resetting = True
-            self._recalculate = True
+            self.reset_self()
             # Reset parent instance if desired
             if parent_reset and self.parent is not None:
                 self.parent.reset()
             self._resetting = False
+
+    def reset_self(self) -> None:
+        """Reset just the solver parameters."""
+        self._recalculate = True
+        # Reset all local attributes to the desired reset value
+        for key, val in self._reset_dict.items():
+            self.__setattr__(key, val)
 
     def hard_reset(self, convergence_reset: bool = False) -> None:
         """Reset the in progress solver flags and call a normal reset."""

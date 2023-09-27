@@ -6,6 +6,7 @@ This file specifies an output formatter for a SysML Block providing
 user-friendly and accessible views on the created blocks.
 """
 from typing import List, Iterable
+import pandas as pd
 
 from cetpy.Modules.SysML import ValueProperty
 
@@ -245,4 +246,77 @@ class Report:
                     p.name_display, value)]
 
         return lines
+    # endregion
+
+    # region Data Output
+    def get_data_df_self(self, include_long_arrays: bool = True):
+        """Return pandas DataFrame of all settings, inputs, and outputs."""
+        block = self._parent
+        value_properties = self.value_properties
+        input_properties = self.input_properties
+
+        df = pd.DataFrame(dtype=object)
+        for p in value_properties:
+            try:
+                value = p.__get__(block)
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
+                continue
+            if not include_long_arrays and isinstance(value, Iterable) \
+                    and not isinstance(value, str) and len(value) > 5:
+                continue  # Skip long arrays
+            n = p.name_display
+            if p in input_properties:
+                df.loc[n, 'type'] = 'input'
+            else:
+                df.loc[n, 'type'] = 'output'
+            df.loc[n, 'value'] = value
+            df.loc[n, 'unit'] = p.unit
+            df.loc[n, 'axis_label'] = p.axis_label
+            df.loc[n, 'precision'] = 0
+            if (p not in input_properties and isinstance(
+                    df.loc[n, 'value'], float | int | Iterable)):
+                df.loc[n, 'precision'] = block.tolerance
+
+        return df
+
+    def get_data_df(self, include_long_arrays: bool = True):
+        """Return pandas DataFrame of all properties including parts."""
+        block = self._parent
+        df = self.get_data_df_self(include_long_arrays=include_long_arrays)
+        if df.shape[0] == 0:
+            return df
+        df.loc[:, 'element'] = block.name
+        element = df.pop('element')
+        df.insert(0, 'element', element)
+        df.insert(1, 'property', df.index)
+        df.reset_index(inplace=True, drop=True)
+
+        try:
+            dfs = [(e, e.report.get_data_df(
+                include_long_arrays=include_long_arrays))
+                   for e in block.solvers + block.ports + block.parts]
+
+            dfs = [(e, d) for e, d in dfs if d.shape[0] > 0]
+
+            # Ensure unique port, part, and solver names
+            names = []
+            for e, d in dfs:
+                if e.name not in names:
+                    names += [e.name]
+                else:
+                    new_name = e.name + '2'
+                    d.loc[:, 'element'] = d.element.str.replace(
+                        e.name, new_name)
+                    names += new_name
+
+            for e, d in dfs:
+                d.loc[:, 'element'] = [block.name + '.' + s
+                                       for s in d.loc[:, 'element']]
+            if len(dfs) > 0:
+                df = pd.concat((df, *[d for e, d, in dfs]))
+            df.reset_index(inplace=True, drop=True)
+        except AttributeError:
+            pass
+        return df
     # endregion

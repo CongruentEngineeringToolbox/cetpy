@@ -65,6 +65,7 @@ standard_units = {
     'heat flux': 'W/m^2',
     'heat transfer coefficient': 'W/m^2K',
     'velocity': 'm/s',
+    'mass fraction': '-',
     'mass flow': 'kg/s',
     'mass': 'kg',
     'volume flow': 'm^3/s',
@@ -80,6 +81,7 @@ standard_units = {
     'resistance': 'ohm',
     'magnetic induction': 'T',
     'frequency': 'Hz',
+    'time': 's',
     'rpm': '1/min',
     'index': '-',
     'kv': 'm^3/h',
@@ -131,14 +133,14 @@ def unit_2_latex(unit: str) -> str:
 # standard axis labels, keys are the trigger and values the display string
 standard_labels = ['ratio', 'error', 'radius', 'diameter', 'length', 'area',
                    'volume', 'thickness', 'height', 'width', 'stress',
-                   'pressure', 'temperature', 'density', 'mass_fraction',
+                   'pressure', 'temperature', 'density', 'mass fraction',
                    'mass', 'specific heat capacity', 'thermal conductivity',
                    'enthalpy', 'entropy', 'heat flux',
                    'heat transfer coefficient', 'velocity', 'gas constant',
                    'prandtl', 'force', 'torque', 'power', 'energy', 'voltage',
                    'charge', 'magnetic flux', 'capacitance', 'resistance',
                    'magnetic induction', 'frequency', 'index',
-                   'factor_of_safety']
+                   'factor of safety']
 standard_labels = dict(zip(standard_labels,
                            [label.title() for label in standard_labels]))
 standard_labels.update({
@@ -172,7 +174,8 @@ def name_2_axis_label(name: str) -> str:
     elif 'ratio' in name:  # Prioritise ratio
         return standard_labels['ratio']
     else:
-        keys = [k for k in standard_labels.keys() if k in name]
+        keys = [k for k in standard_labels.keys()
+                if k in name.lower().replace('_', ' ')]
         if len(keys) > 0:
             return standard_labels[keys[0]]
         else:

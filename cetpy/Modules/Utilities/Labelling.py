@@ -33,7 +33,7 @@ standard_units = {
     'eta': '-',
     'error': '-',
     'ratio': '-',
-    'factor_of_safety': '-',
+    'factor of safety': '-',
     'dp': 'Pa',
     'prandtl': '-',
     'dt': 'K',

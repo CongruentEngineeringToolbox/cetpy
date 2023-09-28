@@ -255,7 +255,9 @@ class Report:
         value_properties = self.value_properties
         input_properties = self.input_properties
 
-        df = pd.DataFrame(dtype=object)
+        # Initialise array with one object column since the value can be
+        # anything, an object instance, float, str, list, array, etc.
+        df = pd.DataFrame(columns=['value'], dtype=object)
         for p in value_properties:
             try:
                 value = p.__get__(block)
@@ -270,7 +272,7 @@ class Report:
                 df.loc[n, 'type'] = 'input'
             else:
                 df.loc[n, 'type'] = 'output'
-            df.loc[n, 'value'] = value
+            df.at[n, 'value'] = value  # use at for inserting iterable
             df.loc[n, 'unit'] = p.unit
             df.loc[n, 'axis_label'] = p.axis_label
             df.loc[n, 'precision'] = 0

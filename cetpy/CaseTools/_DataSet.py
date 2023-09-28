@@ -26,7 +26,7 @@ from cetpy.Modules.SysML import Block, ValueProperty, value_property
 from cetpy.CaseTools.FilterFunctions import apply_filter, \
     drop_no_variance_columns, apply_one_hot_encoding
 from cetpy.Modules.Utilities.Labelling import round_sig_figs, \
-    floor_sig_figs, ceil_sig_figs, unit_2_latex
+    floor_sig_figs, ceil_sig_figs, unit_2_latex, name_2_unit, name_2_axis_label
 
 
 binary_color_maps = ['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
@@ -78,6 +78,9 @@ class DataSet(Block):
         'error_filter', 'input_df', 'units', 'axis_labels', 'last_input_column'
     ]
 
+    _reset_dict = Block._reset_dict.copy()
+    _reset_dict.update({'_output_df': None})
+
     def __init__(self,
                  raw_df: pd.DataFrame,
                  drop_errors: bool = True,
@@ -104,6 +107,15 @@ class DataSet(Block):
             last_input_column=last_input_column,
             **kwargs)
         self.raw_df = raw_df
+        if units is None or axis_labels is None:
+            names = [s.split('.')[-1] for s in raw_df.columns]
+            if units is None:
+                self.units = {col: name_2_unit(name)
+                              for col, name in zip(raw_df.columns, names)}
+            if axis_labels is None:
+                self.axis_labels = {
+                    col: name_2_axis_label(name)
+                    for col, name in zip(raw_df.columns, names)}
 
     @value_property(input_permissible=True,
                     permissible_types_list=[str, type(None)])
@@ -116,12 +128,12 @@ class DataSet(Block):
         """
         df = self.raw_df
         try:
-            idx_solved = df.columns.to_list.find('solved') - 1
+            idx_solved = df.columns.get_loc('solved') - 1
         except AttributeError:
             raise ValueError('The last input column of the dataframe could '
                              'not be evaluated automatically. Please set the '
                              'column manually with DataSet.last_input_column')
-        return idx_solved
+        return df.columns[idx_solved]
 
     @property
     def __idx_last_input_column_raw__(self) -> int:
@@ -1253,15 +1265,22 @@ class DataSet(Block):
             except (KeyError, TypeError):
                 df_errors = self.df_errors
                 df_raw = self.raw_df
-            df_errors_filter = apply_filter(df_raw, self.error_filter)
-            df_errors_detected = df_errors.drop(
-                index=df_errors_filter.index)
+            error_filter = self.error_filter
+            if error_filter is not None and error_filter != []:
+                df_errors_filter = apply_filter(df_raw, error_filter,
+                                                join_and=False)
+                df_errors_detected = df_errors.drop(
+                    index=df_errors_filter.index, errors='ignore')
+            else:
+                df_errors_filter = pd.DataFrame(columns=df_errors.columns)
+                df_errors_detected = df_errors.copy()
             ax.scatter(df_errors_detected[key_x],
                        df_errors_detected[key_y_single],
                        c='red', **plot_kwargs, label='Detected')
-            ax.scatter(df_errors_filter[key_x],
-                       df_errors_filter[key_y_single],
-                       c='tab:orange', **plot_kwargs, label='Filter')
+            if error_filter is not None and error_filter != []:
+                ax.scatter(df_errors_filter[key_x],
+                           df_errors_filter[key_y_single],
+                           c='tab:orange', **plot_kwargs, label='Filter')
 
         for key in keys_y_plotting:
             if plot_only_errors:

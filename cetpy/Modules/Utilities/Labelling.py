@@ -131,13 +131,14 @@ def unit_2_latex(unit: str) -> str:
 # standard axis labels, keys are the trigger and values the display string
 standard_labels = ['ratio', 'error', 'radius', 'diameter', 'length', 'area',
                    'volume', 'thickness', 'height', 'width', 'stress',
-                   'pressure', 'temperature', 'density',
-                   'specific heat capacity', 'thermal conductivity',
+                   'pressure', 'temperature', 'density', 'mass_fraction',
+                   'mass', 'specific heat capacity', 'thermal conductivity',
                    'enthalpy', 'entropy', 'heat flux',
                    'heat transfer coefficient', 'velocity', 'gas constant',
                    'prandtl', 'force', 'torque', 'power', 'energy', 'voltage',
                    'charge', 'magnetic flux', 'capacitance', 'resistance',
-                   'magnetic induction', 'frequency', 'index']
+                   'magnetic induction', 'frequency', 'index',
+                   'factor_of_safety']
 standard_labels = dict(zip(standard_labels,
                            [label.title() for label in standard_labels]))
 standard_labels.update({

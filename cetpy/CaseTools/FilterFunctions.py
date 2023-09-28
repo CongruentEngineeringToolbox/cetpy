@@ -190,7 +190,9 @@ def apply_filter(df: pd.DataFrame, filter_list: str | List[str],
     --------
     pd.Dataframe.query
     """
-    if isinstance(filter_list, str):
+    if filter_list is None or filter_list == []:
+        return df.copy()
+    elif isinstance(filter_list, str):
         if filter_list in ['', '()']:
             return df.copy()
         else:

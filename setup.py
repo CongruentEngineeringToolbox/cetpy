@@ -33,6 +33,7 @@ setup(
         'pandas',
         'CoolProp',
         'tomli',
+        'keras',
         'smt',
         'pytest',
         'matplotlib',

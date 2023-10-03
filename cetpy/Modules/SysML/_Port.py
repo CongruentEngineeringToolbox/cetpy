@@ -175,13 +175,13 @@ class Port:
         """Reset port and upstream elements."""
         self.reset_self()
         if self._upstream is not None:
-            self._upstream.reset()
+            self._upstream.reset(parent_reset=False)
 
     def reset_downstream(self) -> None:
         """Reset port and downstream elements."""
         self.reset_self()
         if self._downstream is not None:
-            self._downstream.reset()
+            self._downstream.reset(parent_reset=False)
 
     def reset_self(self) -> None:
         """Reset port stored intermediate values."""

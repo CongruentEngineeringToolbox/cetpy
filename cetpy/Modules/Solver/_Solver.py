@@ -61,7 +61,7 @@ class Solver:
         if val_initial is not None:
             val_initial.solvers.remove(self)
             val_initial.reset()
-        if val is not None and val not in val.solvers:
+        if val is not None and self not in val.solvers:
             val.solvers += [self]
         self.reset()
 

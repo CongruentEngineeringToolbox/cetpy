@@ -75,11 +75,13 @@ class UnitFloat(float):
 class DeterminationTest:
     """Class to manage over- and under-determination of model inputs."""
 
-    __slots__ = ['_num', 'auto_fix', 'properties', 'deep_properties']
+    __slots__ = ['_num', 'auto_fix', 'properties', 'deep_properties',
+                 'optional']
 
     def __init__(self, properties: List[str] = None,
                  num: int = 1, auto_fix: bool = True,
-                 deep_properties: List[str] = None,) -> None:
+                 deep_properties: List[str] = None,
+                 optional: bool = False) -> None:
         self._num = num
         self.auto_fix = auto_fix
         if properties is None:
@@ -140,11 +142,12 @@ class DeterminationTest:
 
     def determined(self, instance) -> bool:
         """Return bool if value property set are correctly determined."""
-        return self.n_determination(instance) == 0
+        n = self.n_determination(instance)
+        return n == 0 or (self.optional and n == 1)
 
     def under_determined(self, instance) -> bool:
         """Return bool if value property set is under-determined."""
-        return self.n_determination(instance) > 0
+        return self.n_determination(instance) > int(self.optional)
 
     def over_determined(self, instance) -> bool:
         """Return bool if value property set is over-determined."""
@@ -159,6 +162,8 @@ class DeterminationTest:
         direction = ''
         amendment = ''
         if n_actual == n_target:
+            return
+        elif self.optional and n_actual == 0:
             return
         elif n_actual > n_target:
             direction = 'over-'

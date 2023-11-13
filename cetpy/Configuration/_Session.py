@@ -23,6 +23,8 @@ class Session:
         self.config_manager = ConfigurationManager(directory)
         self.logging_level = logging_level
         self.directory = directory
+        cetpy.sessions += [self]
+        cetpy.active_session = self
 
     def parameter(self, name: str):
         """Return key from the session config dictionary.

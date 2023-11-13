@@ -1753,7 +1753,10 @@ class DataSet(Block):
                     alternate_df = datasets[i].df
 
                 # Simplify title for categorical splits
-                sub_title = datasets[i].filter_list[-1]
+                if isinstance(datasets[i].filter_list, list):
+                    sub_title = datasets[i].filter_list[-1]
+                else:
+                    sub_title = datasets[i].filter_list
                 sub_cat = [k for k in self.keys_categorical
                            if k + " == " in sub_title]
                 if len(sub_cat) > 0:

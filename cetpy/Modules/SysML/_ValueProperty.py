@@ -90,6 +90,7 @@ class DeterminationTest:
         if deep_properties is None:
             deep_properties: List[str] = []
         self.deep_properties = deep_properties
+        self.optional = optional
 
     @property
     def num(self) -> int:

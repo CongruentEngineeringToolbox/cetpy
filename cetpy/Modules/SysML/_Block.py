@@ -163,7 +163,8 @@ class Block:
             key_strings = [ps + '.' + key for ps in parameter_strings] + [key]
             in_kwargs = [k.replace('.', '_') for k in key_strings
                          if k.replace('.', '_') in kwargs.keys()]
-            in_config = [k for k in key_strings if k in config_keys]
+            in_config = [k.replace('.', '_') for k in key_strings
+                         if k.replace('.', '_') in config_keys]
             if len(in_kwargs) > 0:
                 key_load = in_kwargs[0]
                 source = 'kwargs'

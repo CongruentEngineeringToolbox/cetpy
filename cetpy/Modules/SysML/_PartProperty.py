@@ -120,6 +120,10 @@ class PartProperty:
                         add_kwargs[key] = instance.__deep_getattr__(val[11:])
                     elif isinstance(val, str) and 'logic:kwargs:' in val:
                         add_kwargs[key] = kwargs.get(val[13:], None)
+                    elif isinstance(val, str) and 'logic:init:' in val:
+                        # noinspection PyProtectedMember
+                        add_kwargs[key] = instance._get_init_parameters(
+                            val[11:])
                 kwargs.update(add_kwargs)
 
             part = value(name=kwargs.pop('name', self._name), parent=instance,

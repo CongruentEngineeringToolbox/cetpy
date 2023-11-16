@@ -1,0 +1,34 @@
+# Session Config
+
+# This file specifies the default configuration of your cetpy session. In
+# here you can specify config properties for cetpy Blocks. To find out what
+# you can specify for a block of your chosing request Block.__init_parameters__
+# All values in this list can be specified as config items or keyword
+# arguments. Please note that the keyword arguments have priority.
+
+# The file is a TOML file, you can find the specification here:
+# https://toml.io/en/
+
+# You may want to set different values for a specific ValueProperty for two
+# different blocks or only on a specific class. For this purpose you can
+# specify the class tree or block name tree to target specific blocks in your
+# system. For example if you have a class Pipe, and want all pipes to have a
+# hydraulic diameter of 10 mm, but not any other Fluid Blocks you can write:
+# pipe_hydraulic_diameter = 10e-3
+
+# If you want a specific pipe, called Pipe1 to have a hydraulic diameter of 12:
+# pipe1_hydraulic_diameter = 12e-3
+
+# If you want Pipe1 of System2 to have a hydraulic diameter of 16 mm:
+# system2_pipe1_hydraylic_diameter = 16e-3
+
+# The more specific, the higher the priority for any matching component.
+# You can verify the correct loading in the log file.
+
+# If you are using a package that extends cetpy and includes Config Files
+# you can also integrate those config files here, and overwrite as desired:
+# config_amendment = ConfigFolder1/ConfigName6
+# The chosen config files will be used as a base (in order of appearance)
+# and finally the parameters specified here are superimposed on top.
+
+this_could_be_your_parameter = 42

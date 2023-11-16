@@ -22,9 +22,9 @@ class FluidPort(SML.ContinuousPort):
     containing specific flow properties and output value properties
     tailored for fluid flow."""
 
-    p = SML.FlowProperty(unit='Pa')
-    t = SML.FlowProperty(unit='K')
-    mdot = SML.FlowProperty(unit='kg/s')
+    p = SML.FlowProperty(unit='Pa', default=10e5)
+    t = SML.FlowProperty(unit='K', default=298.15)
+    mdot = SML.FlowProperty(unit='kg/s', default=0.0)
     area_mode = SML.ValueProperty(
         '', permissible_list=['fixed', 'upstream', 'downstream'],
         permissible_types_list=str)

@@ -12,6 +12,7 @@ SysML Documentation:
 
 from __future__ import annotations
 
+import logging
 from typing import List, Any, Dict
 
 import cetpy
@@ -46,6 +47,7 @@ class Block:
     _reset_dict: Dict[str, Any] = {}
     _hard_reset_dict: Dict[str, Any] = {}
     __fixed_parameters__: List[str] = []
+    __default_parameters__: Dict[str, Any] = {}
     _bool_parent_reset = True
 
     print = ValuePrinter()
@@ -83,6 +85,7 @@ class Block:
         # region Solver Flags
         self._resetting = False
         self._parent = None
+        self._tolerance = 0  # Full initialisation at the end.
         # endregion
 
         # region Attributes
@@ -132,7 +135,27 @@ class Block:
 
         config_keys = cetpy.active_session.config_manager.config_keys
 
-        def parameter(key: str):
+        def get_key_strings(key_in: str) -> List[str]:
+            """Return joined parameter strings with the key attached.
+
+            Strings are sorted in order of complexity.
+            """
+            return [ps + '.' + key_in for ps in parameter_strings] + [key_in]
+
+        def get_key_in_kwargs(key_in: str) -> List[str]:
+            """Return joined key strings which are present in the keyword
+            arguments."""
+            key_strings = get_key_strings(key_in)
+            return [k.replace('.', '_') for k in key_strings
+                    if k.replace('.', '_') in kwargs.keys()]
+
+        def get_key_in_config(key_in: str) -> List[str]:
+            """Return joined key strings which are present in the configs."""
+            key_strings = get_key_strings(key_in)
+            return [k.replace('.', '_') for k in key_strings
+                    if k.replace('.', '_') in config_keys]
+
+        def parameter(key_in: str):
             """Return parameter setting for a given key with prioritisation.
 
             Source Prioritisation:
@@ -157,14 +180,11 @@ class Block:
                 4. Moon.radius
                 5. radius
 
-            Please note, for comparison to kwargs, all '.' separators are
+            Please note, for comparison all '.' separators are
             replaced by '_'.
             """
-            key_strings = [ps + '.' + key for ps in parameter_strings] + [key]
-            in_kwargs = [k.replace('.', '_') for k in key_strings
-                         if k.replace('.', '_') in kwargs.keys()]
-            in_config = [k.replace('.', '_') for k in key_strings
-                         if k.replace('.', '_') in config_keys]
+            in_kwargs = get_key_in_kwargs(key_in)
+            in_config = get_key_in_config(key_in)
             if len(in_kwargs) > 0:
                 key_load = in_kwargs[0]
                 source = 'kwargs'
@@ -178,18 +198,27 @@ class Block:
             if isinstance(val, str | float | int | None):
                 self._logger.log(
                     15,
-                    f"{key} loaded as {key_load} from {source}: {str(val)}")
+                    f"{key_in} loaded as {key_load} from {source}: {str(val)}")
             else:
                 self._logger.log(
-                    15, f"{key} loaded as {key_load} from {source}")
+                    15, f"{key_in} loaded as {key_load} from {source}")
             return val
         self._get_init_parameters = parameter
         self.__init_kwargs__ = kwargs
+        cls = type(self)
 
         self._resetting = True  # Avoid unnecessary resets.
         for key in self.__init_parameters__:
-            getattr(type(self), key).__set__(self, parameter(key))
+            getattr(cls, key).__set__(self, parameter(key))
         self._resetting = False
+
+        # Check default parameters before running the determination tests.
+        for key, value in self.__default_parameters__.items():
+            vp = getattr(cls, key)
+            d_test = vp.determination_test
+            if ((d_test is not None and d_test.under_determined(self))
+                    or (d_test is None and not vp.fixed(self))):
+                vp.__set__(self, value)
 
         # Determination test is disabled on initial initialisation as the
         # parameters are initialised in sequence, and it would fail regardless
@@ -197,7 +226,7 @@ class Block:
         d_tests = []
         for key in [k for k in self.__init_parameters__
                     if getattr(type(self), k).determination_test is not None]:
-            d_test = getattr(type(self), key).determination_test
+            d_test = getattr(cls, key).determination_test
             if d_test not in d_tests:
                 d_tests += [d_test]
                 d_test.test(self)
@@ -213,7 +242,6 @@ class Block:
         # endregion
 
         # region Tolerance
-        self._tolerance = 0
         if tolerance is None:
             if self.parent is not None:
                 try:
@@ -272,6 +300,11 @@ class Block:
 
     def __call__(self, *args, **kwargs) -> None:
         return self.report()
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Return the appropriate logger for the block."""
+        return self._logger
     # endregion
 
     # region Solver Functions

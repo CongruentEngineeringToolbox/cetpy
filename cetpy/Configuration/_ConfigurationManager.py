@@ -232,6 +232,11 @@ class ConfigurationManager:
         return self._config
 
     @property
+    def configs(self) -> dict:
+        """All config dictionary defining the session config."""
+        return self._configs
+
+    @property
     def directory(self) -> str | None:
         """Active directory for the config manager."""
         return self._directory
@@ -310,10 +315,12 @@ class ConfigurationManager:
                 # Add config to list first, to preserve initial state
                 # and prioritisation.
                 if config_dict is not None:
-                    config_dict[cam] = config_add
+                    config_dict[cam] = config_add.copy()
                 config_add = self.__load_config_amendment__(
                     config_add, config_dict, allow_user_directory)
-                config_in.update(config_add)
+                config_add.update(config_in)  # Prioritise config_in
+                config_in = config_add
+            config_in.pop('config_amendment', None)
         return config_in
 
     def load(self) -> None:

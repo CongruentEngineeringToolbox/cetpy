@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import cetpy.Modules.SysML
+from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportPort
 
 
@@ -20,6 +21,8 @@ class Port:
                  '_resetting', '_tolerance', '__dict__']
 
     __flow_properties__ = []
+
+    print = ValuePrinter()
 
     def __init__(self,
                  upstream: cetpy.Modules.SysML.Block | None = None,

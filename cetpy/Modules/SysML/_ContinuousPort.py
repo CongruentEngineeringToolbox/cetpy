@@ -121,6 +121,7 @@ class ContinuousPort(SML.Port):
         for fp in self.__flow_properties__:
             # noinspection PyProtectedMember
             name_input = fp._name_instance_input
+            default = fp.default
             if fp.get_direction(self) == fp.get_direction(opposite):
                 # Solver direction is already aligned, verify self is not an
                 # input
@@ -129,18 +130,21 @@ class ContinuousPort(SML.Port):
                 continue
             upstream_value = port_list[0].__getattribute__(name_input)
             downstream_value = port_list[-1].__getattribute__(name_input)
-            upstream_viable = upstream_value is not None
-            downstream_viable = downstream_value is not None
+            upstream_viable = (upstream_value is not None
+                               and upstream_value != default)
+            downstream_viable = (downstream_value is not None
+                                 and upstream_value != default)
 
             if upstream_viable and not downstream_viable:
                 direction = 'downstream'
             elif downstream_viable and not upstream_viable:
                 direction = 'upstream'
             else:
+                direction = fp.get_direction(self)
                 # noinspection PyProtectedMember
                 val._logger.warning(f"Automatic direction assignment failed "
-                                    f"for {fp.name}")
-                return
+                                    f"for {fp.name}, proceeding with "
+                                    f"direction: {direction}")
             for p in port_list:
                 fp.set_direction(p, direction)
 

@@ -34,7 +34,7 @@ def generate_block_class_list() -> Dict[str, Block]:
         # n-levels deep in this path. So we must strip out the overlap
         # between the path entry and the module locations. Finally, we must
         # swap out the directory separators for '.' package separators.
-        overlap = [p for p in sys.path if p in location][-1]
+        overlap = [p for p in sys.path if p in location and p != ''][-1]
         location_new = location.replace(overlap, '').replace(
             os.path.sep, '.')[1:]
 

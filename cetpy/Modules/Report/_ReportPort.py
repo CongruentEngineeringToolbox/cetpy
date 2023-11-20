@@ -28,8 +28,9 @@ class ReportPort(Report):
         lines += ['\n']
         lines += self.__get_report_output_text__()
 
+        lines += ['\n']
         header = ' ' + self._parent.__class__.__name__ + ' Complete '
-        lines += ['\n' + header.center(80, '-') + '\n']
+        lines += [header.center(80, '-') + '\n\n']
         return lines
 
     def __get_report_header_text__(self) -> List[str]:
@@ -37,10 +38,10 @@ class ReportPort(Report):
 
         lines = []
 
-        lines += ['=' * 80 + '\n']
+        lines += ['-' * 80 + '\n']
         header = ' ' + port.__class__.__name__ + ' '
         lines += [header.center(80, '=') + '\n']
-        lines += ['=' * 80 + '\n']
+        lines += ['-' * 80 + '\n']
 
         lines += ['Name: {:>23s}\n'.format(port.__class__.__name__)]
         if port.upstream is not None:

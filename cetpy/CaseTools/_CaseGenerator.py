@@ -44,7 +44,23 @@ class CaseGeneratorSolver(cetpy.Modules.Solver.Solver):
 
 
 class CaseGenerator(cetpy.Modules.SysML.Block):
-    """Congruent Engineering Toolbox Case Generator."""
+    """Congruent Engineering Toolbox Case Generator.
+
+    The CaseGenerator combines a set of input parameters to create large
+    sets of evaluation cases for cetpy Blocks. It can do so in four key ways:
+    - direct: the boring way, what every you put in, is what you get out.
+              Used to read in pre-generated lists into the CaseRunner.
+    - monte_carlo: Randomize each parameter either with an even distribution or
+                   a normal distribution.
+    - lhs: Latin Hypercube Sampling, a.k.a Monte Carlo on Steroids. Evenly
+           resolve each design parameter and combine them in a way that doesn't
+           leave gaps in the design space.
+    - full_factorial: Every value of every parameter with every value of
+                      every other parameter. Easy on the analysis and
+                      punishing on the CPU. Beware, the case count applies
+                      to each parameter individually and the true case count
+                      quickly explodes.
+    """
 
     input_df = cetpy.Modules.SysML.ValueProperty(
         permissible_types_list=pd.DataFrame)
@@ -53,7 +69,7 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
         permissible_types_list=str)
     sub_method = cetpy.Modules.SysML.ValueProperty(
         permissible_list=['ese', 'center', 'maximin', 'centermaximin',
-                          'correlation', 'corr'],
+                          'correlation', 'corr', None],
         permissible_types_list=[type(None), str])
     n_cases = cetpy.Modules.SysML.ValueProperty(
         permissible_list=(0, None),
@@ -74,10 +90,75 @@ class CaseGenerator(cetpy.Modules.SysML.Block):
     def __init__(self, input_df: pd.DataFrame = None,
                  method: str = 'direct',
                  sub_method: str = None,
-                 n_cases: int = 1,
+                 n_cases: int = 2,
                  case_df_postprocess_function:
                  Callable[[pd.DataFrame], pd.DataFrame] = None,
                  **kwargs):
+        """Initialise a Case Generator for combination of parameters to 
+        create a large evaluation case list.
+        
+        Parameters
+        ----------
+        input_df
+            Pandas dataframe of input parameters and their ranges. In case of 
+            the 'direct' method, the input_df is directly the case list, 
+            where each row represents one set of inputs for the system. 
+            Otherwise, each parameter is a column and the rows can be one of 
+            'min', 'max', 'list', 'mean', 'std'. 'mean' and 'std' are only 
+            permitted for the 'monte_carlo' method. Min/Max specify the 
+            lower and upper bounds of the range, while list specifies a list of 
+            potential parameters, these can also include strings. An easy 
+            way to generate a valid DataFrame is as follows:
+            
+            input_df = pd.DataFrame({
+                'prop1': [1 , 2, None],
+                'prop2': [None, None, [3, 4, 5]]
+            }, index = ['min', 'max', 'list'])
+            
+        method: optional, default = 'direct'
+            Method selector for case generation, one of:
+            - direct:           Direct pass-through of input_df, each row 
+                                represents a system input.
+            - monte_carlo:      Generate a random distribution of each 
+                                parameter individually. Can be an even 
+                                distribution (min + max, list) or a normal 
+                                distribution (mean + std).
+            - lhs:              Latin-Hypercube Sampling, sample each 
+                                parameter evenly in its design space, then
+                                combine the parameter samplings such that no
+                                gaps are left in the design space and the
+                                design space is evenly filled.
+            - full_factorial:   Discretise each parameter in accordance to 
+                                the n_cases parameter. Then combine each
+                                combination of every value of every 
+                                parameter. Beware the case counts grow very 
+                                quickly!
+                                
+        sub_method: optional, default = None
+            Sub methods of the available methods, currently relevant for 'lhs'.
+            Supports: 'ese' (recommended), 'center', 'maximin', 
+                      'centermaximin', 'correlation', and 'corr'
+            See documentation of smt.sampling_methods for more information.
+            
+        n_cases: optional, default = 2
+            Number of cases to generate. Has no effect in the 'direct' 
+            method. For full-factorial applies on a per parameter basis. So 
+            3 parameters with an n_cases of 3 results in 27 cases, for 10 
+            parameters that is 59049 cases. For 10 parameters and an n_cases of
+            5 it is 10^7 cases. Behaviour with a single case is untested, 
+            it is recommended to simply generate an instance of the system 
+            directly.
+        
+        case_df_postprocess_function: optional, default = None
+            A function to modify the case dataframe after generation. Allows 
+            the operator to procedurally modify the case list after generation 
+            but before execution in a CaseRunner. The function has to follow 
+            the pattern:
+            
+            def post_process(df: pd.DataFrame) -> pd.DataFrame:
+                # Insert your modifications here
+                return df
+        """
         super().__init__(
             kwargs.pop('name', 'case_generator'),
             input_df=input_df,

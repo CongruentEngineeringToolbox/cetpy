@@ -27,10 +27,11 @@ def get_absolute_path(file_path: str, additional_locations: List[str] = None
     additional locations in order of occurrence, and lastly the CET config
     locations from cetpy.Configurations in order of occurrence.
     """
+    if file_path[-5:] != '.toml':
+        file_path = file_path + '.toml'
     if isfile(abspath(file_path)):
         return abspath(file_path)
     else:
-
         for location in (additional_locations +
                          cetpy.Configuration.config_locations):
             abs_path = join(location, file_path)
@@ -40,8 +41,11 @@ def get_absolute_path(file_path: str, additional_locations: List[str] = None
 
 def load_config(file_path: str) -> dict:
     """Return dictionary fitting to a TOML file at the specified location."""
-    with open(file_path, "rb") as f:
-        return tomli.load(f)
+    try:
+        with open(file_path, "rb") as f:
+            return tomli.load(f)
+    except tomli.TOMLDecodeError:
+        return {}  # Empty config.
 
 
 def interpret_config(config: dict, additional_locations: List[str] = None
@@ -228,6 +232,11 @@ class ConfigurationManager:
         return self._config
 
     @property
+    def configs(self) -> dict:
+        """All config dictionary defining the session config."""
+        return self._configs
+
+    @property
     def directory(self) -> str | None:
         """Active directory for the config manager."""
         return self._directory
@@ -281,15 +290,20 @@ class ConfigurationManager:
     def __get_config__(self, file_path: str) -> dict:
         """Return dictionary fitting to a TOML file at the specified location
         while finding a relevant config in the CET config structure."""
-        return load_config(self.__get_abs_path__(file_path))
+        abs_path = self.__get_abs_path__(file_path)
+        if abs_path is not None:
+            return load_config(abs_path)
+        else:
+            raise ValueError(f"Config File could not be found. "
+                             f"Config Path: {file_path}")
 
     def __load_config_amendment__(self, config: dict,
                                   config_dict: dict = None,
                                   allow_user_directory: bool = True
                                   ) -> dict:
         """Overload a config with its stated amendments."""
+        config_in = config.copy()
         if 'config_amendment' in config.keys():
-            config_in = config.copy()
             config_amendment = config_in['config_amendment']
             if not isinstance(config_amendment, list):
                 config_amendment = [config_amendment]
@@ -301,11 +315,13 @@ class ConfigurationManager:
                 # Add config to list first, to preserve initial state
                 # and prioritisation.
                 if config_dict is not None:
-                    config_dict[cam] = config_add
+                    config_dict[cam] = config_add.copy()
                 config_add = self.__load_config_amendment__(
                     config_add, config_dict, allow_user_directory)
-                config_in.update(config_add)
-        return config
+                config_add.update(config_in)  # Prioritise config_in
+                config_in = config_add
+            config_in.pop('config_amendment', None)
+        return config_in
 
     def load(self) -> None:
         """Load the configuration at the specified directory."""

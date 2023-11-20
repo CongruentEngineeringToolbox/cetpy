@@ -8,7 +8,9 @@ program parameters, and working directory.
 
 import logging
 from importlib import reload
-from os.path import join, split, dirname
+from os.path import join, split, dirname, isdir
+from os import mkdir
+from shutil import copyfile
 import sys
 
 import cetpy.Configuration
@@ -16,13 +18,25 @@ from cetpy.Configuration import ConfigurationManager
 
 
 class Session:
-    """Congruent Engineering Toolbox Session."""
+    """Congruent Engineering Toolbox Session.
+
+    The sessions aim to improve the repeatability and traceability of
+    conducted work in cetpy. The session can read TOML config files within
+    the specified folder and also moves the cetpy.log file in the specified
+    folder. The log file can act as the proof of work, that parameters were
+    recognised and processed correctly.
+
+    Remember to call cetpy.active_session.refresh() if you've made a change
+    to the config files.
+    """
 
     def __init__(self, directory: str | None, logging_level: str = 'info'):
         self.logger = None
         self.config_manager = ConfigurationManager(directory)
         self.logging_level = logging_level
         self.directory = directory
+        cetpy.sessions += [self]
+        cetpy.active_session = self
 
     def parameter(self, name: str):
         """Return key from the session config dictionary.
@@ -56,6 +70,11 @@ class Session:
     @directory.setter
     def directory(self, val: str) -> None:
         self._directory = val
+        if val is not None and not isdir(val):
+            # Create directory and copy the default config.
+            mkdir(val)
+            copyfile(join(dirname(__file__), 'default_session_config.toml'),
+                     join(val, self.config_manager.session_config_name))
         self.config_manager.directory = val
         self.start_logging()
 

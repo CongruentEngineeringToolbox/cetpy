@@ -19,7 +19,7 @@ class ContinuousPort(SML.Port):
     such as fluid flow."""
 
     __slots__ = ['_upstream_list', '_upstream_port_list', '_downstream_list',
-                 '_downstream_port_list']
+                 '_downstream_port_list', 'solver_dict_name']
 
     def __init__(self,
                  upstream: SML.Block | None = None,
@@ -27,6 +27,7 @@ class ContinuousPort(SML.Port):
                  name: str = None, flow_item: object | None = None,
                  upstream_dict_name: str = None,
                  downstream_dict_name: str = None,
+                 solver_dict_name: str = 'solver',
                  tolerance: float = None):
         self._upstream_list = None
         self._upstream_port_list = None
@@ -39,25 +40,18 @@ class ContinuousPort(SML.Port):
                          upstream_dict_name=upstream_dict_name,
                          downstream_dict_name=downstream_dict_name,
                          tolerance=tolerance)
+        self.solver_dict_name = solver_dict_name
 
     # region System References
-    @SML.Port.upstream.setter
-    def upstream(self, val: SML.Block | None) -> None:
-        SML.Port.upstream.fset(self, val)
-        self.__generate_upstream_list__()
-        for port in self.downstream_port_list:
-            port.__generate_upstream_list__()
-
-    @SML.Port.downstream.setter
-    def downstream(self, val: SML.Block | None) -> None:
-        SML.Port.downstream.fset(self, val)
-        self.__generate_downstream_list__()
-        for port in self.upstream_port_list:
-            port.__generate_downstream_list__()
-
     def _update_reference(self, reference: str,
                           val: SML.Block | None):
         val_initial = self.__getattribute__(reference)
+        dict_name = self.__getattribute__(reference + '_dict_name')
+        if val is not None:
+            port_initial = val.__getattribute__(dict_name)
+        else:
+            port_initial = None
+
         SML.Port._update_reference(self, reference, val)
 
         if val is val_initial:
@@ -66,9 +60,9 @@ class ContinuousPort(SML.Port):
         self.__generate_upstream_list__()
         self.__generate_downstream_list__()
 
-        for port in self.flow_system_port_list:
-            port.__generate_downstream_list__()
-            port.__generate_upstream_list__()
+        port_list = self.flow_system_port_list
+        port_list[0].__generate_downstream_list__()
+        port_list[-1].__generate_upstream_list__()
 
         # Update flow item from possible opposite port. This must be done
         # after all new references are established.
@@ -78,6 +72,34 @@ class ContinuousPort(SML.Port):
             opposite_name = '_downstream'
         else:
             opposite_name = '_upstream'
+
+        # Regenerate port list of old connections of newly connected port.
+        if port_initial is not None:
+            getattr(port_initial, '__generate' + opposite_name + '_list__')()
+            try:
+                if reference == '_upstream':
+                    port_initial_opposite_end = \
+                        port_initial.downstream_port_list[-1]
+                else:
+                    port_initial_opposite_end = \
+                        port_initial.upstream_port_list[0]
+                getattr(port_initial_opposite_end,
+                        '__generate' + reference + '_list__')()
+            except IndexError:
+                pass  # no other connected blocks, port is forgotten.
+
+        if val is val_initial:
+            return
+
+        if val_initial is not None:
+            solver_initial = getattr(val_initial, self.solver_dict_name)
+            solver_copy = solver_initial.copy()
+            solver_copy.parent = val_initial
+
+        if val is not None:
+            getattr(val, self.solver_dict_name).replace(
+                getattr(val, self.solver_dict_name))
+
         try:
             opposite = val.__getattribute__(self.__getattribute__(
                 opposite_name + '_dict_name'))
@@ -95,15 +117,11 @@ class ContinuousPort(SML.Port):
             # elements' flow items using own flow item.
             opposite.flow_item = self._flow_item
 
-        # create transfer functions, only if opposite exists (not an end point)
-        for fp in self.__flow_properties__:
-            fp.__create_block_delta_attribute__(val)
-
         # Update solver directions and input values
-        port_list = self.flow_system_port_list
         for fp in self.__flow_properties__:
             # noinspection PyProtectedMember
             name_input = fp._name_instance_input
+            default = fp.default
             if fp.get_direction(self) == fp.get_direction(opposite):
                 # Solver direction is already aligned, verify self is not an
                 # input
@@ -112,18 +130,21 @@ class ContinuousPort(SML.Port):
                 continue
             upstream_value = port_list[0].__getattribute__(name_input)
             downstream_value = port_list[-1].__getattribute__(name_input)
-            upstream_viable = upstream_value is not None
-            downstream_viable = downstream_value is not None
+            upstream_viable = (upstream_value is not None
+                               and upstream_value != default)
+            downstream_viable = (downstream_value is not None
+                                 and upstream_value != default)
 
             if upstream_viable and not downstream_viable:
                 direction = 'downstream'
             elif downstream_viable and not upstream_viable:
                 direction = 'upstream'
             else:
+                direction = fp.get_direction(self)
                 # noinspection PyProtectedMember
                 val._logger.warning(f"Automatic direction assignment failed "
-                                    f"for {fp.name}")
-                return
+                                    f"for {fp.name}, proceeding with "
+                                    f"direction: {direction}")
             for p in port_list:
                 fp.set_direction(p, direction)
 
@@ -176,6 +197,7 @@ class ContinuousPort(SML.Port):
             try:
                 next_port = self._upstream.__getattribute__(
                     self._downstream_dict_name)
+                next_port.__generate_upstream_list__()
                 self._upstream_list = \
                     next_port.upstream_list + [self._upstream]
                 self._upstream_port_list = \
@@ -193,6 +215,7 @@ class ContinuousPort(SML.Port):
             try:
                 next_port = self._downstream.__getattribute__(
                     self._upstream_dict_name)
+                next_port.__generate_downstream_list__()
                 self._downstream_list = \
                     [self._downstream] + next_port.downstream_list
                 self._downstream_port_list = \

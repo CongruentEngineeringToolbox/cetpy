@@ -33,7 +33,7 @@ standard_units = {
     'eta': '-',
     'error': '-',
     'ratio': '-',
-    'factor_of_safety': '-',
+    'factor of safety': '-',
     'dp': 'Pa',
     'prandtl': '-',
     'dt': 'K',
@@ -65,6 +65,7 @@ standard_units = {
     'heat flux': 'W/m^2',
     'heat transfer coefficient': 'W/m^2K',
     'velocity': 'm/s',
+    'mass fraction': '-',
     'mass flow': 'kg/s',
     'mass': 'kg',
     'volume flow': 'm^3/s',
@@ -80,6 +81,7 @@ standard_units = {
     'resistance': 'ohm',
     'magnetic induction': 'T',
     'frequency': 'Hz',
+    'time': 's',
     'rpm': '1/min',
     'index': '-',
     'kv': 'm^3/h',
@@ -131,13 +133,14 @@ def unit_2_latex(unit: str) -> str:
 # standard axis labels, keys are the trigger and values the display string
 standard_labels = ['ratio', 'error', 'radius', 'diameter', 'length', 'area',
                    'volume', 'thickness', 'height', 'width', 'stress',
-                   'pressure', 'temperature', 'density',
-                   'specific heat capacity', 'thermal conductivity',
+                   'pressure', 'temperature', 'density', 'mass fraction',
+                   'mass', 'specific heat capacity', 'thermal conductivity',
                    'enthalpy', 'entropy', 'heat flux',
                    'heat transfer coefficient', 'velocity', 'gas constant',
                    'prandtl', 'force', 'torque', 'power', 'energy', 'voltage',
                    'charge', 'magnetic flux', 'capacitance', 'resistance',
-                   'magnetic induction', 'frequency', 'index']
+                   'magnetic induction', 'frequency', 'index',
+                   'factor of safety']
 standard_labels = dict(zip(standard_labels,
                            [label.title() for label in standard_labels]))
 standard_labels.update({
@@ -171,7 +174,8 @@ def name_2_axis_label(name: str) -> str:
     elif 'ratio' in name:  # Prioritise ratio
         return standard_labels['ratio']
     else:
-        keys = [k for k in standard_labels.keys() if k in name]
+        keys = [k for k in standard_labels.keys()
+                if k in name.lower().replace('_', ' ')]
         if len(keys) > 0:
             return standard_labels[keys[0]]
         else:
@@ -251,3 +255,232 @@ def scale_value(value: float) -> (float, str):
         index_min = 8
     value = value / standard_unit_magnitudes[index_min]
     return value, standard_unit_magnitude_abbreviations[index_min]
+
+
+def scale_value_unit(value: float, unit: str) -> (float, str):
+    """Apply base 3 scaling prefixes to a value and unit pair incorporating
+    handling of units with exponents."""
+    val_scaled, prefix = scale_value(value)
+
+    if not any([str(i) in unit for i in range(10)]) or prefix == '':
+        # No higher order unit exponents, direct output is correct.
+        return val_scaled, prefix + unit
+    else:
+        if 'm^' in unit:
+            # Try special handling of areas and volumes, as these quickly lead
+            # to vastly scaled properties
+            if '/' not in unit or unit.find('m^') < unit.find('/'):
+                # No division or area in numerator
+                u = 'm^2'
+                if u in unit:
+                    match prefix:
+                        case 'E':
+                            return val_scaled, unit.replace(u, 'T' + u)
+                        case 'T':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case 'M':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'µ':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'p':
+                            return val_scaled, unit.replace(u, 'µ' + u)
+                        case _:
+                            return value, unit
+                u = 'm^3'
+                if u in unit:
+                    match prefix:
+                        case 'E':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case 'G':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'n':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case _:
+                            return value, unit
+                return value, unit
+            else:
+                # Denominator
+                u = 'm^2'
+                if u in unit:
+                    match prefix:
+                        case 'T':
+                            return val_scaled, unit.replace(u, 'µ' + u)
+                        case 'M':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'µ':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case 'p':
+                            return val_scaled, unit.replace(u, 'M' + u)
+                        case _:
+                            return value, unit
+                u = 'm^3'
+                if u in unit:
+                    match prefix:
+                        case 'G':
+                            return val_scaled, unit.replace(u, 'm' + u)
+                        case 'm':
+                            return val_scaled, unit.replace(u, 'L')
+                        case 'n':
+                            return val_scaled, unit.replace(u, 'k' + u)
+                        case _:
+                            return value, unit
+                return value, unit
+        else:
+            return value, prefix + '(' + unit + ')'
+
+
+def round_sig_figs(value: float, sig_figs: int) -> float:
+    """Round a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a float -> str format -> float conversion, so should
+    be considered to be slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> round_sig_figs(1267, 2)
+    1300.0
+
+    >>> round_sig_figs(576000, 4)
+    576000.0
+
+    >>> round_sig_figs(354.387290, 5)
+    354.39
+
+    >>> round_sig_figs(24.2450, 3)
+    24.2
+
+    >>> round_sig_figs(1.289, 1)
+    1.0
+
+    Machine number rounding errors still apply. Here 0.075 in floating point
+    numbers is represented as 0.074999 ... 999 so the round evalues to 0.07
+    >>> round_sig_figs(0.075, 1)
+    0.07
+    """
+    return float('{:.{p}g}'.format(value, p=sig_figs))
+
+
+def ceil_sig_figs(value: float, sig_figs: int) -> float:
+    """Round up a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a series of float -> str format -> float conversion,
+    so should be considered to be very slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> ceil_sig_figs(1267, 2)
+    1300.0
+
+    >>> ceil_sig_figs(576000, 4)
+    576000.0
+
+    >>> ceil_sig_figs(354.387290, 5)
+    354.39
+
+    >>> ceil_sig_figs(24.2450, 3)
+    24.3
+
+    >>> ceil_sig_figs(1.289, 1)
+    2.0
+    """
+    value_new = float('{:.{p}g}'.format(value, p=sig_figs))
+    if value_new >= value:
+        return value_new
+    else:
+        offset = 10. ** np.arange(-10, 10)
+        value_new = [float('{:.{p}g}'.format(value + o, p=sig_figs))
+                     for o in offset]
+        return min([v for v in value_new if v > value])
+
+
+def floor_sig_figs(value: float, sig_figs: int) -> float:
+    """Round up a float to a given number of significant figures.
+
+    Parameters
+    ----------
+    value
+        A float value to be rounded.
+
+    sig_figs
+        An integer of the number of significant figures to round to. E.g.
+        1.23 is three significant figures, as is 478 000 000 or 0.00875.
+
+    Returns
+    -------
+    float
+        A significant figure rounded float value. Note additional zeros are
+        not attached. Neither is the .0 removed if the value could be
+        expressed by an integer.
+
+    Notes
+    -----
+    - The function uses a series of float -> str format -> float conversion,
+    so should be considered to be very slow.
+
+    - Standard machine number rounding errors still apply. See round(0.075)
+
+    Examples
+    --------
+    >>> floor_sig_figs(1267, 2)
+    1200.0
+
+    >>> floor_sig_figs(576000, 4)
+    576000.0
+
+    >>> floor_sig_figs(354.387290, 5)
+    354.38
+
+    >>> floor_sig_figs(24.2450, 3)
+    24.2
+
+    >>> floor_sig_figs(1.289, 1)
+    1.0
+    """
+    value_new = float('{:.{p}g}'.format(value, p=sig_figs))
+    if value_new <= value:
+        return value_new
+    else:
+        offset = 10. ** np.arange(-10, 10)
+        value_new = [float('{:.{p}g}'.format(value - o, p=sig_figs))
+                     for o in offset]
+        return max([v for v in value_new if v < value])

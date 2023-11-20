@@ -27,14 +27,15 @@ class FlowProperty(ValueProperty):
     along a continuous flow. Such as for pressure, temperature,
     and mass-flow in a fluid system."""
     __slots__ = ['_name_instance_input', '_name_instance_direction',
-                 '_name_instance_recalculate']
+                 '_name_instance_recalculate', '_default']
 
     def __init__(self,
                  unit: str = None, axis_label: str = None,
-                 necessity_test: float = 0.1) -> None:
+                 necessity_test: float = 0.1, default: float = None) -> None:
         self._name_instance_input = ''
         self._name_instance_direction = ''
         self._name_instance_recalculate = ''
+        self._default = default
         super().__init__(unit, axis_label, necessity_test=necessity_test)
 
     # region Decorators
@@ -80,9 +81,9 @@ class FlowProperty(ValueProperty):
 
         instance.__setattr__(name_recalculate, False)
         instance.__setattr__(name_stored, 0)
-        reset_dict = type(instance).__getattribute__('_reset_dict')
+        reset_dict = getattr(type(instance), '_reset_dict')
         reset_dict.update({self._name_instance_recalculate: True})
-        hard_reset_dict = type(instance).__getattribute__('_hard_reset_dict')
+        hard_reset_dict = getattr(type(instance), '_hard_reset_dict')
         hard_reset_dict.update({name_stored: 0})
 
         def delta() -> float:
@@ -163,4 +164,9 @@ class FlowProperty(ValueProperty):
             raise ValueError("Direction must be either up- or downstream.")
         for p in instance.flow_system_port_list:
             p.__setattr__(self._name_instance_direction, val)
+
+    @property
+    def default(self) -> float:
+        """Return default value."""
+        return self._default
     # endregion

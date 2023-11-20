@@ -47,7 +47,15 @@ class FluidCoolProp(FluidSkeleton):
 
     def rho(self, t: float | np.ndarray, p: float | np.ndarray
             ) -> float | np.ndarray:
-        return PropsSI('D', 'T', t, 'P', p, self.cpid)
+        try:
+            return PropsSI('D', 'T', t, 'P', p, self.cpid)
+        except ValueError as err:
+            if "Saturation pressure" in err.args[0]:
+                # Offset and run command towards liquid phase if on the
+                # phase boundary.
+                return PropsSI('D', 'T', t * (1 - 3e-4), 'P', p, self.cpid)
+            else:
+                raise err
 
     def p(self, t: float | np.ndarray, rho: float | np.ndarray
           ) -> float | np.ndarray:

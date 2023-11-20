@@ -10,16 +10,19 @@ from __future__ import annotations
 from typing import Any
 
 import cetpy.Modules.SysML
+from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportPort
 
 
 class Port:
     """SysML Port element."""
     __slots__ = ['_upstream', '_downstream', '_upstream_dict_name',
-                 '_downstream_dict_name', 'name', 'parent', '_flow_item',
+                 '_downstream_dict_name', '_name', 'parent', '_flow_item',
                  '_resetting', '_tolerance', '__dict__']
 
     __flow_properties__ = []
+
+    print = ValuePrinter()
 
     def __init__(self,
                  upstream: cetpy.Modules.SysML.Block | None = None,
@@ -50,6 +53,18 @@ class Port:
 
     # region System References
     @property
+    def name(self) -> str:
+        """Port name."""
+        if self._name is None:
+            return type(self).__name__
+        else:
+            return self._name
+
+    @name.setter
+    def name(self, val: str) -> None:
+        self._name = val
+
+    @property
     def upstream(self) -> cetpy.Modules.SysML.Block | None:
         """Port upstream element."""
         return self._upstream
@@ -79,13 +94,14 @@ class Port:
             port_copy = self.__copy_unlinked__()
             val_initial.ports += [port_copy]
             val_initial.__setattr__(dict_name, port_copy)
-            if reference == '_upstream':
-                opposite_name = '_downstream'
-            else:
-                opposite_name = '_upstream'
-            port_copy.__setattr__(opposite_name, val_initial)
+            port_copy.__setattr__(reference, val_initial)
             val_initial.reset()
         if val is not None:
+            port_initial = val.__getattribute__(dict_name)
+            if port_initial is not None and port_initial in val.ports:
+                val.ports.remove(port_initial)
+                port_initial.__setattr__(reference, None)
+                port_initial.reset()
             val.ports += [self]
             val.__setattr__(dict_name, self)
             val.reset()
@@ -137,6 +153,15 @@ class Port:
             name_split = name.split('.')
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
+
+    def __deep_get_vp__(self, name: str) -> Any:
+        """Get value property from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return getattr(type(self), name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_get_vp__(
+                '.'.join(name_split[1:]))
     # endregion
 
     # region Resetting
@@ -153,13 +178,13 @@ class Port:
         """Reset port and upstream elements."""
         self.reset_self()
         if self._upstream is not None:
-            self._upstream.reset()
+            self._upstream.reset(parent_reset=False)
 
     def reset_downstream(self) -> None:
         """Reset port and downstream elements."""
         self.reset_self()
         if self._downstream is not None:
-            self._downstream.reset()
+            self._downstream.reset(parent_reset=False)
 
     def reset_self(self) -> None:
         """Reset port stored intermediate values."""

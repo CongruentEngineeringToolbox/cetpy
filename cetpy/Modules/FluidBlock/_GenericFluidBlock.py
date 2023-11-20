@@ -10,6 +10,7 @@ The model is intended for steady-state incompressible flow and is quite rough.
 from __future__ import annotations
 
 import numpy as np
+from copy import deepcopy
 
 from cetpy.Modules.SysML import value_property, DeterminationTest, \
     ValueProperty
@@ -19,11 +20,12 @@ from cetpy.Modules.FluidBlock import FluidBlock
 class GenericFluidBlock(FluidBlock):
     """Generic Fluid Block element."""
 
-    dp_fixed = ValueProperty()
+    dp_fixed = deepcopy(FluidBlock.dp_fixed)
     dp_fixed.determination_test = DeterminationTest()
+    hydraulic_diameter = deepcopy(FluidBlock.hydraulic_diameter)
 
     __init_parameters__ = FluidBlock.__init_parameters__.copy() + [
-        'kv', 'cd',
+        'kv', 'cd', 'loss_factor'
     ]
 
     # region Transfer Functions
@@ -37,8 +39,11 @@ class GenericFluidBlock(FluidBlock):
         FluidBlock.dp: public function with necessity check
         """
         if self.__class__.kv.fixed(self):
-            return - 1e5 * self.inlet.rho / 1000 / (
-                    self.kv / (self.inlet.vdot * 3600)) ** 2
+            try:
+                return - 1e5 * self.inlet.rho / 1000 / (
+                        self.kv / (self.inlet.vdot * 3600)) ** 2
+            except ZeroDivisionError:
+                return 0
         elif self.__class__.cd.fixed(self) and self.area is not None:
             return - (self.inlet.mdot / self.cda) ** 2 / (2 * self.inlet.rho)
         elif self.__class__.loss_factor.fixed(self):
@@ -49,7 +54,7 @@ class GenericFluidBlock(FluidBlock):
 
     # region Input Properties
     @value_property(
-        determination_test=FluidBlock.hydraulic_diameter.determination_test)
+        determination_test=hydraulic_diameter.determination_test)
     def area(self) -> float:
         """Fluid element characteristic flow area [m^2]."""
         if self.__class__.hydraulic_diameter.fixed(self):

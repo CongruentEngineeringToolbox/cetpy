@@ -6,7 +6,10 @@ This file specifies the base Solver class which defines the base structure
 of the decentralised solver architecture.
 """
 
-from typing import List, Any
+from __future__ import annotations
+
+from typing import List, Any, Dict
+from copy import deepcopy
 
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportSolver
@@ -16,44 +19,92 @@ class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 'parent', 'convergence_keys', '_tolerance', 'report']
+                 '_parent', '_tolerance', 'report', '_last_input']
 
     print = ValuePrinter()
+
+    input_keys: List[str] = []
+    convergence_keys: List[str] = []
+    _reset_dict: Dict[str, Any] = {}
 
     def __init__(self, parent, tolerance: float = None):
         self._recalculate = True
         self._calculating = False
         self._resetting = False
+        self._last_input = []
         self._hold = 0
-        self.convergence_keys: List[str] = []
+        self._parent = None
         self.parent = parent
-        if parent is not None and self not in parent.solvers:
-            parent.solvers += [self]
         self._tolerance = 0
         if tolerance is None and self.parent is not None:
             tolerance = self.parent.tolerance
         self.tolerance = tolerance
         self.report = ReportSolver(parent=self)
 
+    # region System References
+    @property
+    def name(self) -> str:
+        """Solver name."""
+        return type(self).__name__
+
+    @property
+    def parent(self):
+        """Solver owner block."""
+        return self._parent
+
+    @parent.setter
+    def parent(self, val) -> None:
+        val_initial = self._parent
+        if val_initial == val:
+            return
+        self._parent = val
+        if val_initial is not None:
+            val_initial.solvers.remove(self)
+            val_initial.reset()
+        if val is not None and self not in val.solvers:
+            val.solvers += [self]
+        self.reset()
+
+    def replace(self, val: Solver) -> None:
+        """Replace this solver with a new solver for the parent."""
+        parent = self.parent
+        self.parent = None
+        val.parent = parent
+
+    def copy(self) -> Solver:
+        """Return a copy of this solver without block references."""
+        solver_copy = deepcopy(self)
+        solver_copy.parent = None
+        return solver_copy
+    # endregion
+
     # region Interface Functions
     def reset(self, parent_reset: bool = True) -> None:
         """Tell the solver to resolve before the next value output."""
         if not self._resetting:
             self._resetting = True
-            self._recalculate = True
+            self.reset_self()
             # Reset parent instance if desired
-            if parent_reset:
+            if parent_reset and self.parent is not None:
                 self.parent.reset()
             self._resetting = False
+
+    def reset_self(self) -> None:
+        """Reset just the solver parameters."""
+        self._recalculate = True
+        # Reset all local attributes to the desired reset value
+        for key, val in self._reset_dict.items():
+            self.__setattr__(key, val)
 
     def hard_reset(self, convergence_reset: bool = False) -> None:
         """Reset the in progress solver flags and call a normal reset."""
         self._resetting = False
         self._calculating = False
         self.reset()
+        self._last_input = []
         if convergence_reset:
             for key in self.convergence_keys:
-                self.__setattr__(key, None)
+                self.__deep_setattr__(key, None)
 
     def __deep_getattr__(self, name: str) -> Any:
         """Get value from block or its parts, solvers, and ports."""
@@ -72,13 +123,68 @@ class Solver:
             name_split = name.split('.')
             self.__getattribute__(name_split[0]).__deep_setattr__(
                 '.'.join(name_split[1:]), val)
+
+    def __deep_get_vp__(self, name: str) -> Any:
+        """Get value property from block or its parts, solvers, and ports."""
+        if '.' not in name:
+            return getattr(type(self), name)
+        else:
+            name_split = name.split('.')
+            return self.__getattribute__(name_split[0]).__deep_get_vp__(
+                '.'.join(name_split[1:]))
     # endregion
 
     # region Solver Flags
     @property
     def solved(self) -> bool:
-        """Return bool if the solver is solved."""
-        return not self._recalculate
+        """Return bool if the solver is solved.
+
+        If the recalculate flag is True and input keys are specified the
+        function further calls Solver.necessary to perform an additional
+        check if a resolve is actually necessary using the last stored solve
+        input parameters.
+        """
+        return not self._recalculate or not self.necessary
+
+    # region Necessity Test
+    @property
+    def necessary(self) -> bool:
+        """Return bool if a rerun in necessary. If no input keys are
+        specified, the function always returns True as it cannot verify the
+        inputs are still the same. The solved check still prioritises the
+        recalculate flag set by the post_solver."""
+        input_keys = self.input_keys
+        last_input = self._last_input
+        if len(input_keys) == 0 or len(last_input) == 0:
+            return True
+        for val_last, key in zip(last_input, input_keys):
+            vp = self.__deep_get_vp__(key)
+            val_new = self.__deep_getattr__(key)
+            if vp.__reset_necessary(self, val_new, val_last):
+                # break on first indication that a resolve is necessary
+                return True
+        if not self.calculating:  # Shortcut for next call
+            self._recalculate = False
+        return False
+
+    def __get_input__(self) -> list:
+        """Pull and return all current input properties."""
+        return [self.__deep_getattr__(k) for k in self.input_keys]
+
+    def __get_input_sensitivity__(self) -> List[float]:
+        """Pull and return all current input properties."""
+        return [self.__deep_get_vp__(k).necessity_test
+                for k in self.input_keys]
+
+    def _write_last_input(self) -> None:
+        """Write current input properties to _last_input attribute.
+
+        This function is called as part of the pre-run. It's recommended
+        that if the solver is recursive, the function is also called once at
+        the start of every solver loop.
+        """
+        self._last_input = self.__get_input__()
+    # endregion
 
     @property
     def calculating(self) -> bool:
@@ -135,6 +241,7 @@ class Solver:
     def _pre_solve(self) -> None:
         """Conduct standardised pre-run of the solver."""
         self._calculating = True
+        self._write_last_input()
 
     def _solve_function(self) -> None:
         """This is the actual solve function of the solver."""

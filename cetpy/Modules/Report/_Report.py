@@ -6,6 +6,7 @@ This file specifies an output formatter for a SysML Block providing
 user-friendly and accessible views on the created blocks.
 """
 from typing import List, Iterable
+import pandas as pd
 
 from cetpy.Modules.SysML import ValueProperty
 
@@ -133,8 +134,9 @@ class Report:
                 ' ' + block.name_display + "'s Port Reports Complete ")
             lines += ['  ' + ports_header.center(80, '-') + '\n\n']
 
+        lines += ['\n']
         header = ' ' + self._parent.name_display + ' Complete '
-        lines += ['\n' + header.center(80, '-') + '\n']
+        lines += [header.center(80, '-') + '\n\n\n']
         return lines
 
     def __get_report_header_text__(self) -> List[str]:
@@ -151,37 +153,37 @@ class Report:
         lines += [header.center(80, '=') + '\n']
         lines += ['=' * 80 + '\n']
 
-        lines += ['Name: {:>23s}\n'.format(block.name_display)]
-        lines += ['Abbreviation: {:>15s}\n'.format(block.abbreviation)]
-        lines += ['Class: {:>22s}\n'.format(type(block).__name__)]
+        lines += ['Name: {:>33s}\n'.format(block.name_display)]
+        lines += ['Abbreviation: {:>25s}\n'.format(block.abbreviation)]
+        lines += ['Class: {:>32s}\n'.format(type(block).__name__)]
         if block.parent is not None:
-            lines += ['Parent: {:>21s}\n'.format(block.parent.name_display)]
-        lines += ['# Solvers: {:>18d}\n'.format(len(solvers))]
-        lines += ['# Ports: {:>20d}\n'.format(len(ports))]
-        lines += ['# Parts: {:>20d}\n'.format(len(parts))]
+            lines += ['Parent: {:>31s}\n'.format(block.parent.name_display)]
+        lines += ['# Solvers: {:>28d}\n'.format(len(solvers))]
+        lines += ['# Ports: {:>30d}\n'.format(len(ports))]
+        lines += ['# Parts: {:>30d}\n'.format(len(parts))]
 
         if len(solvers) > 0:
-            solver_lines = ['Solvers: {:20s}\n'.format(
+            solver_lines = ['Solvers: {:30s}\n'.format(
                 solvers[0].__class__.__name__)]
             for sol in solvers[1:]:
-                solver_lines += ['         {:20s}\n'.format(
+                solver_lines += ['         {:30s}\n'.format(
                     sol.__class__.__name__)]
             lines += solver_lines
         if len(ports) > 0:
-            ports_lines = ['Ports: {:22s}\n'.format(
+            ports_lines = ['Ports: {:32s}\n'.format(
                 ports[0].__class__.__name__)]
             for port in ports[1:]:
-                ports_lines += ['       {:22s}\n'.format(
+                ports_lines += ['       {:32s}\n'.format(
                     port.__class__.__name__)]
             lines += ports_lines
         if len(parts) > 0:
-            parts_lines = ['Parts: {:22s}\n'.format(
+            parts_lines = ['Parts: {:32s}\n'.format(
                 parts[0].name_display)]
             for part in parts[1:]:
-                parts_lines += ['       {:22s}\n'.format(
+                parts_lines += ['       {:32s}\n'.format(
                     part.name_display)]
             lines += parts_lines
-        lines += ['Tolerance: {:>18.2e}\n'.format(block.tolerance)]
+        lines += ['Tolerance: {:>28.2e}\n'.format(block.tolerance)]
 
         return lines
 
@@ -206,7 +208,8 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
                 lines += ["{:25s}: {:15s}\n".format(
@@ -235,11 +238,87 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
                 lines += ["{:25s}: {:15s}\n".format(
                     p.name_display, value)]
 
         return lines
+    # endregion
+
+    # region Data Output
+    def get_data_df_self(self, include_long_arrays: bool = True):
+        """Return pandas DataFrame of all settings, inputs, and outputs."""
+        block = self._parent
+        value_properties = self.value_properties
+        input_properties = self.input_properties
+
+        # Initialise array with one object column since the value can be
+        # anything, an object instance, float, str, list, array, etc.
+        df = pd.DataFrame(columns=['value'], dtype=object)
+        for p in value_properties:
+            try:
+                value = p.__get__(block)
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
+                    NotImplementedError, IndexError):
+                continue
+            if not include_long_arrays and isinstance(value, Iterable) \
+                    and not isinstance(value, str) and len(value) > 5:
+                continue  # Skip long arrays
+            n = p.name_display
+            if p in input_properties:
+                df.loc[n, 'type'] = 'input'
+            else:
+                df.loc[n, 'type'] = 'output'
+            df.at[n, 'value'] = value  # use at for inserting iterable
+            df.loc[n, 'unit'] = p.unit
+            df.loc[n, 'axis_label'] = p.axis_label
+            df.loc[n, 'precision'] = 0
+            if (p not in input_properties and isinstance(
+                    df.loc[n, 'value'], float | int | Iterable)):
+                df.loc[n, 'precision'] = block.tolerance
+
+        return df
+
+    def get_data_df(self, include_long_arrays: bool = True):
+        """Return pandas DataFrame of all properties including parts."""
+        block = self._parent
+        df = self.get_data_df_self(include_long_arrays=include_long_arrays)
+        if df.shape[0] == 0:
+            return df
+        df.loc[:, 'element'] = block.name
+        element = df.pop('element')
+        df.insert(0, 'element', element)
+        df.insert(1, 'property', df.index)
+        df.reset_index(inplace=True, drop=True)
+
+        try:
+            dfs = [(e, e.report.get_data_df(
+                include_long_arrays=include_long_arrays))
+                   for e in block.solvers + block.ports + block.parts]
+
+            dfs = [(e, d) for e, d in dfs if d.shape[0] > 0]
+
+            # Ensure unique port, part, and solver names
+            names = []
+            for e, d in dfs:
+                if e.name not in names:
+                    names += [e.name]
+                else:
+                    new_name = e.name + '2'
+                    d.loc[:, 'element'] = d.element.str.replace(
+                        e.name, new_name)
+                    names += new_name
+
+            for e, d in dfs:
+                d.loc[:, 'element'] = [block.name + '.' + s
+                                       for s in d.loc[:, 'element']]
+            if len(dfs) > 0:
+                df = pd.concat((df, *[d for e, d, in dfs]))
+            df.reset_index(inplace=True, drop=True)
+        except AttributeError:
+            pass
+        return df
     # endregion

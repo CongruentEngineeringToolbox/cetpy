@@ -2,15 +2,15 @@
 Module Manager
 ==============
 
-This file defines function to aggregate a list of modules used in cetpy and
-extension modules. It pulls from the cetpy.Configuration module_location
-list and aggregates all modules deriving from the base SysML Block class.
+This file defines function to aggregate a list of modules used in cetpy and extension modules. It pulls from the
+cetpy.Configuration module_location list and aggregates all modules deriving from the base SysML Block class.
 """
 import sys
 import pkgutil
 import os.path
 from types import ModuleType
 from typing import Dict
+import numpy as np
 
 
 import cetpy
@@ -19,34 +19,33 @@ from cetpy.Modules.SysML import Block
 
 
 def get_module(name: str) -> cetpy.Modules.SysML.Block:
-    """Find and return a module based on its base name from the blocks in
-    the module locations of the cetpy configuration."""
+    """Find and return a module based on its base name from the blocks in the module locations of the cetpy
+    configuration."""
     return cetpy.Configuration.module_dict[name]
 
 
 def generate_block_class_list() -> Dict[str, Block]:
-    """Return dictionary of all Block derived classes in across cetpy and
-    extension modules."""
+    """Return dictionary of all Block derived classes in across cetpy and extension modules."""
     blocks = {}
     for location in cetpy.Configuration.module_locations:
         location = os.path.abspath(location)
-        # The issue here is that the location, while on the OS path, can be
-        # n-levels deep in this path. So we must strip out the overlap
-        # between the path entry and the module locations. Finally, we must
-        # swap out the directory separators for '.' package separators.
-        overlap = [p for p in sys.path if p in location and p != ''][-1]
-        location_new = location.replace(overlap, '').replace(
-            os.path.sep, '.')[1:]
+        # The issue here is that the location, while on the OS path, can be n-levels deep in this path. So we must
+        # strip out the overlap between the path entry and the module locations. Finally, we must swap out the
+        # directory separators for '.' package separators.
+        overlaps = [p for p in sys.path if p in location and p != '']
+        if len(overlaps) == 1:
+            overlap = overlaps[-1]
+        else:
+            idx = np.argmax([len(o) for o in overlaps])
+            overlap = overlaps[idx]
+        location_new = location.replace(overlap, '').replace(os.path.sep, '.')[1:]
 
         module_instance = get_submodule_instance(location_new)
 
-        # Verify that the correct module was loaded, also important for
-        # security.
+        # Verify that the correct module was loaded, also important for security.
         if module_instance.__path__[0] != location:
-            raise ValueError(f"The path match failed on the module locations. "
-                             f"The desired import path was {location}, "
-                             f"the attempted match resulted in "
-                             f"{module_instance.__path__[0]}.")
+            raise ValueError(f"The path match failed on the module locations. The desired import path was {location}, "
+                             f"the attempted match resulted in {module_instance.__path__[0]}.")
 
         blocks.update(get_module_recursive_classes(module_instance))
     return blocks
@@ -73,11 +72,9 @@ def get_module_classes(ref_module: ModuleType) -> Dict[str, Block]:
 
 
 def get_submodules(ref_module: ModuleType) -> Dict[str, ModuleType]:
-    """Return dictionary of name and Module Instance of all submodules of a
-    module."""
+    """Return dictionary of name and Module Instance of all submodules of a module."""
     mod_list = list([
-        i for i in pkgutil.iter_modules(ref_module.__path__,
-                                        prefix=ref_module.__name__ + '.')
+        i for i in pkgutil.iter_modules(ref_module.__path__, prefix=ref_module.__name__ + '.')
         if i.ispkg])
     modules = {}
     for submodule in mod_list:

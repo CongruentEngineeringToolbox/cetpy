@@ -3,7 +3,8 @@ from cetpy.Configuration import Session
 
 sessions = []  # Has to happen before Session initialisation
 active_session = Session(None)
-cetpy.Configuration.refresh_module_dict()
+# cetpy.Configuration.refresh_module_dict()  # Turned off until further notice, to avoid automatic tensorflow import
+# and issues with virtual environments until the overlap function is improved.
 
 
 def refresh() -> None:

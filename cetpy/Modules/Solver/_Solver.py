@@ -2,14 +2,14 @@
 Generic Decentralised Solver
 ============================
 
-This file specifies the base Solver class which defines the base structure
-of the decentralised solver architecture.
+This file specifies the base Solver class which defines the base structure of the decentralised solver architecture.
 """
 
 from __future__ import annotations
 
 from typing import List, Any, Dict
 from copy import deepcopy
+from time import perf_counter
 
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportSolver
@@ -18,8 +18,8 @@ from cetpy.Modules.Report import ReportSolver
 class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
-    __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting',
-                 '_parent', '_tolerance', 'report', '_last_input']
+    __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting', '_parent', '_tolerance', 'report',
+                 '_last_input']
 
     print = ValuePrinter()
 
@@ -46,6 +46,11 @@ class Solver:
     def name(self) -> str:
         """Solver name."""
         return type(self).__name__
+
+    @property
+    def long_name(self) -> str:
+        """Solver name with owning block name."""
+        return self.parent.name_display + ' ' + self.name
 
     @property
     def parent(self):
@@ -112,8 +117,7 @@ class Solver:
             return self.__getattribute__(name)
         else:
             name_split = name.split('.')
-            return self.__getattribute__(name_split[0]).__deep_getattr__(
-                '.'.join(name_split[1:]))
+            return self.__getattribute__(name_split[0]).__deep_getattr__('.'.join(name_split[1:]))
 
     def __deep_setattr__(self, name: str, val: Any) -> None:
         """Set value on block or its parts, solvers, and ports."""
@@ -121,8 +125,7 @@ class Solver:
             return self.__setattr__(name, val)
         else:
             name_split = name.split('.')
-            self.__getattribute__(name_split[0]).__deep_setattr__(
-                '.'.join(name_split[1:]), val)
+            self.__getattribute__(name_split[0]).__deep_setattr__('.'.join(name_split[1:]), val)
 
     def __deep_get_vp__(self, name: str) -> Any:
         """Get value property from block or its parts, solvers, and ports."""
@@ -130,8 +133,7 @@ class Solver:
             return getattr(type(self), name)
         else:
             name_split = name.split('.')
-            return self.__getattribute__(name_split[0]).__deep_get_vp__(
-                '.'.join(name_split[1:]))
+            return self.__getattribute__(name_split[0]).__deep_get_vp__('.'.join(name_split[1:]))
     # endregion
 
     # region Solver Flags
@@ -139,20 +141,17 @@ class Solver:
     def solved(self) -> bool:
         """Return bool if the solver is solved.
 
-        If the recalculate flag is True and input keys are specified the
-        function further calls Solver.necessary to perform an additional
-        check if a resolve is actually necessary using the last stored solve
-        input parameters.
+        If the recalculate flag is True and input keys are specified the function further calls Solver.necessary to
+        perform an additional check if a resolve is actually necessary using the last stored solve input parameters.
         """
         return not self._recalculate or not self.necessary
 
     # region Necessity Test
     @property
     def necessary(self) -> bool:
-        """Return bool if a rerun in necessary. If no input keys are
-        specified, the function always returns True as it cannot verify the
-        inputs are still the same. The solved check still prioritises the
-        recalculate flag set by the post_solver."""
+        """Return bool if a rerun in necessary. If no input keys are specified, the function always returns True as
+        it cannot verify the inputs are still the same. The solved check still prioritises the recalculate flag set
+        by the post_solver."""
         input_keys = self.input_keys
         last_input = self._last_input
         if len(input_keys) == 0 or len(last_input) == 0:
@@ -173,15 +172,13 @@ class Solver:
 
     def __get_input_sensitivity__(self) -> List[float]:
         """Pull and return all current input properties."""
-        return [self.__deep_get_vp__(k).necessity_test
-                for k in self.input_keys]
+        return [self.__deep_get_vp__(k).necessity_test for k in self.input_keys]
 
     def _write_last_input(self) -> None:
         """Write current input properties to _last_input attribute.
 
-        This function is called as part of the pre-run. It's recommended
-        that if the solver is recursive, the function is also called once at
-        the start of every solver loop.
+        This function is called as part of the pre-run. It's recommended that if the solver is recursive,
+        the function is also called once at the start of every solver loop.
         """
         self._last_input = self.__get_input__()
     # endregion
@@ -198,9 +195,8 @@ class Solver:
 
     @property
     def hold(self) -> bool:
-        """Current hold status. Hold enables an additional user input to
-        enable and disable the automatic run of individual solvers. The hold is
-        stored as an integer enabling nested holds throughout the system.
+        """Current hold status. Hold enables an additional user input to enable and disable the automatic run of
+        individual solvers. The hold is stored as an integer enabling nested holds throughout the system.
 
         See Also
         --------
@@ -223,15 +219,21 @@ class Solver:
 
     def force_solve(self) -> None:
         """Run the solver, regardless of the current solver state."""
-        self._solve()
-        # ToDo: Add timing and logging.
+        if self.parent.__detailed_debug__:
+            name = self.long_name
+            logger = self.parent.__logger__
+            logger.debug(f"Starting {name}.")
+            t1 = perf_counter()
+            self._solve()
+            logger.debug(f"Finished {name} in {perf_counter() - t1} s.")
+        else:
+            self._solve()
 
     def solve(self) -> None:
         """Run the solver if necessary and allowed.
 
-        The solver will run if the solver is not already solved, the
-        solver is not currently already running, and the solver does not
-        currently have an enabled hold condition.
+        The solver will run if the solver is not already solved, the solver is not currently already running,
+        and the solver does not currently have an enabled hold condition.
         """
         if not self.solved_calculating and not self.hold:
             self.force_solve()
@@ -253,8 +255,7 @@ class Solver:
         self._recalculate = False
 
     def _solve(self) -> None:
-        """Private solve function combining the pre-, core-, and post-solve
-        functions."""
+        """Private solve function combining the pre-, core-, and post-solve functions."""
         self._pre_solve()
         self._solve_function()
         self._post_solve()

@@ -2,9 +2,8 @@
 Configuration Manager
 =====================
 
-This file defines a Configuration Manager for CET. The manager handles the
-interface to the .toml config files, layering of config files,
-and traceability.
+This file defines a Configuration Manager for CET. The manager handles the interface to the .toml config files,
+layering of config files, and traceability.
 """
 
 from os import listdir
@@ -19,24 +18,33 @@ import cetpy
 import cetpy.Configuration
 
 
-def get_absolute_path(file_path: str, additional_locations: List[str] = None
-                      ) -> str:
+def get_absolute_path(file_path: str, additional_locations: List[str] = None) -> str:
     """Return absolute path of a file within the CET config structure.
 
-    A valid absolute path is prioritised above all else. Second the
-    additional locations in order of occurrence, and lastly the CET config
-    locations from cetpy.Configurations in order of occurrence.
+    A valid absolute path is prioritised above all else. Second the additional locations in order of occurrence,
+    and lastly the CET config locations from cetpy.Configurations in order of occurrence.
     """
-    if file_path[-5:] != '.toml':
-        file_path = file_path + '.toml'
     if isfile(abspath(file_path)):
         return abspath(file_path)
     else:
-        for location in (additional_locations +
-                         cetpy.Configuration.config_locations):
+        for location in (additional_locations + cetpy.Configuration.config_locations):
             abs_path = join(location, file_path)
             if isfile(abs_path):
                 return abs_path
+
+
+def get_absolute_config_path(file_path: str, additional_locations: List[str] = None) -> str:
+    """Return absolute path of a config file within the CET config structure.
+
+    Adds .toml to file path if not already present.
+
+    See Also
+    --------
+    get_absolute_path: independent of file ending
+    """
+    if file_path[-5:] != '.toml':
+        file_path = file_path + '.toml'
+    return get_absolute_config_path(file_path, additional_locations=additional_locations)
 
 
 def load_config(file_path: str) -> dict:
@@ -56,10 +64,9 @@ def interpret_config(config: dict, additional_locations: List[str] = None
     out = config.copy()
     for key in out.keys():
         if isinstance(out[key], dict) and 'file' in out[key].keys():
-            match out[key]['file'][-3:]:
-                case 'csv':
-                    out[key] = pd.read_csv(get_absolute_path(
-                        out[key]['file'], additional_locations))
+            match out[key]['file'][-4:]:
+                case '.csv':
+                    out[key] = pd.read_csv(get_absolute_path(out[key]['file'], additional_locations))
                 case '.pkl':
                     with open(out[key]['file'], "rb") as f:
                         out[key] = pickle.load(f)
@@ -75,17 +82,14 @@ def interpret_config(config: dict, additional_locations: List[str] = None
 
 
 def get_parameter_dict() -> dict:
-    """Return parameter dict incorporating all possible parameters
-    across all model elements."""
-    out = load_config(
-        join(dirname(__file__), 'default_config_parameters.toml'))
+    """Return parameter dict incorporating all possible parameters across all model elements."""
+    out = load_config(join(dirname(__file__), 'default_config_parameters.toml'))
 
     def load_parameters_from_dir(file_path: str) -> dict:
         target_dict = {}
         for item in listdir(file_path):
             if isdir(join(file_path, item)):
-                sub_dict = load_parameters_from_dir(
-                    join(file_path, item))
+                sub_dict = load_parameters_from_dir(join(file_path, item))
                 if len(sub_dict) > 0:
                     target_dict[item.lower()] = sub_dict
             if isfile(join(file_path, item)) and item[-5:] == '.toml':
@@ -109,8 +113,7 @@ def get_default_dict(parameter_dict: dict) -> dict:
 
 
 def get_config_keys(config: dict) -> List[str]:
-    """Return list of all value keys in the config, split by a dot,
-    as would be the case in a config file."""
+    """Return list of all value keys in the config, split by a dot, as would be the case in a config file."""
     keys = list(config.keys())
     for key, val in config.items():
         if isinstance(val, dict):
@@ -119,8 +122,8 @@ def get_config_keys(config: dict) -> List[str]:
 
 
 def get_parameter(config: dict, key: str | List[str]):
-    """Return the parameter value from a config dictionary using either the
-    chained name (table headers split by a '.') or a list of keys."""
+    """Return the parameter value from a config dictionary using either the chained name
+    (table headers split by a '.') or a list of keys."""
     if isinstance(key, str):
         key = key.split('.')
     val = config[key[0]]
@@ -154,8 +157,7 @@ def format_value_to_toml(value) -> str:
     elif isinstance(value, dict):
         return "{" + ",".join([f"{k} = {v}" for k, v in value.items()]) + "}"
     else:
-        raise ValueError(
-            f"Value type could not be converted to toml: {type(value)}")
+        raise ValueError(f"Value type could not be converted to toml: {type(value)}")
 
 
 def format_config_key(key: str, value, parameter_entry: dict) -> List[str]:
@@ -170,8 +172,7 @@ def format_config_key(key: str, value, parameter_entry: dict) -> List[str]:
         case None, _:
             lines += ["[" + parameter_entry['unit'] + "]"]
         case _, _:
-            lines += ["(" + parameter_entry['type'] + ") ["
-                      + parameter_entry['unit'] + "]"]
+            lines += ["(" + parameter_entry['type'] + ") [" + parameter_entry['unit'] + "]"]
         case _:
             pass
 
@@ -179,20 +180,16 @@ def format_config_key(key: str, value, parameter_entry: dict) -> List[str]:
     return lines
 
 
-def format_toml_body_text(default_dict: dict, parameter_dict: dict,
-                          table_master_level: list = None) -> List[str]:
+def format_toml_body_text(default_dict: dict, parameter_dict: dict, table_master_level: list = None) -> List[str]:
     """Format the body text of a TOML config file."""
     if table_master_level is None:
         table_master_level = []
     lines = []
 
-    keys_values = [key for key, value in default_dict.items()
-                   if not isinstance(value, dict)]
-    keys_sub_keys = [key for key in default_dict.keys() if key not in
-                     keys_values]
+    keys_values = [key for key, value in default_dict.items() if not isinstance(value, dict)]
+    keys_sub_keys = [key for key in default_dict.keys() if key not in keys_values]
     for key in keys_values:
-        lines += format_config_key(
-            key, default_dict[key], parameter_dict[key])
+        lines += format_config_key(key, default_dict[key], parameter_dict[key])
     lines += ["\n\n"]
 
     for key in keys_sub_keys:
@@ -200,8 +197,7 @@ def format_toml_body_text(default_dict: dict, parameter_dict: dict,
         lines += format_config_table_header(table_sub_level)
         parameter_sub_dict = parameter_dict[key]
         default_sub_dict = default_dict[key]
-        lines += format_toml_body_text(default_sub_dict, parameter_sub_dict,
-                                       table_sub_level)
+        lines += format_toml_body_text(default_sub_dict, parameter_sub_dict, table_sub_level)
     return lines
 
 
@@ -211,8 +207,7 @@ class ConfigurationManager:
     __slots__ = ['_parameter_dict', '_config', '_configs', '_config_keys',
                  '_directory', '_session_config_name']
 
-    def __init__(self, directory: str | None = None,
-                 session_config: str | None = None) -> None:
+    def __init__(self, directory: str | None = None, session_config: str | None = None) -> None:
         self._parameter_dict = {}
         self._config = {}
         self._configs = {}
@@ -294,13 +289,10 @@ class ConfigurationManager:
         if abs_path is not None:
             return load_config(abs_path)
         else:
-            raise ValueError(f"Config File could not be found. "
-                             f"Config Path: {file_path}")
+            raise ValueError(f"Config File could not be found. Config Path: {file_path}")
 
-    def __load_config_amendment__(self, config: dict,
-                                  config_dict: dict = None,
-                                  allow_user_directory: bool = True
-                                  ) -> dict:
+    def __load_config_amendment__(self, config: dict, config_dict: dict = None,
+                                  allow_user_directory: bool = True) -> dict:
         """Overload a config with its stated amendments."""
         config_in = config.copy()
         if 'config_amendment' in config.keys():
@@ -311,13 +303,11 @@ class ConfigurationManager:
                 if allow_user_directory:
                     config_add = self.__get_config__(cam)
                 else:
-                    config_add = load_config(get_absolute_path(cam))
-                # Add config to list first, to preserve initial state
-                # and prioritisation.
+                    config_add = load_config(get_absolute_config_path(cam))
+                # Add config to list first, to preserve initial state and prioritisation.
                 if config_dict is not None:
                     config_dict[cam] = config_add.copy()
-                config_add = self.__load_config_amendment__(
-                    config_add, config_dict, allow_user_directory)
+                config_add = self.__load_config_amendment__(config_add, config_dict, allow_user_directory)
                 config_add.update(config_in)  # Prioritise config_in
                 config_in = config_add
             config_in.pop('config_amendment', None)
@@ -329,16 +319,14 @@ class ConfigurationManager:
         # region Default Config
         config = self.default_dict_raw
         self._configs = {'default': config.copy()}
-        self._config = self.__load_config_amendment__(
-            config, self._configs, False)
+        self._config = self.__load_config_amendment__(config, self._configs, False)
         # endregion
 
         # region Session Config
         if self.directory is not None:
             config = self.__get_config__(self.session_config_name)
             self._configs['session'] = config.copy()
-            self._config.update(self.__load_config_amendment__(
-                config, self._configs, True))
+            self._config.update(self.__load_config_amendment__(config, self._configs, True))
 
         self._config = interpret_config(self._config, [self.directory])
         # endregion
@@ -346,17 +334,14 @@ class ConfigurationManager:
         self._config_keys = get_config_keys(self.config)
 
     def write_session_config_template(self, file_path: str = None) -> None:
-        """Write template for the session config. The session config
-        documents the available options with all installed modules, units,
-        acceptable inputs, and parameter descriptions."""
+        """Write template for the session config. The session config documents the available options with all
+        installed modules, units, acceptable inputs, and parameter descriptions."""
         directory = self.directory
         if directory is None and file_path is None:
-            raise ValueError("The config manager needs a defined directory "
-                             "to write the session config template.")
+            raise ValueError("The config manager needs a defined directory to write the session config template.")
         if file_path is None and isfile(
                 join(directory, 'session_config.toml')):
-            raise FileExistsError("Session config already exists. Delete "
-                                  "this file first before writing again.")
+            raise FileExistsError("Session config already exists. Delete this file first before writing again.")
         if file_path is None:
             file_path = join(directory, 'session_config.toml'),
 

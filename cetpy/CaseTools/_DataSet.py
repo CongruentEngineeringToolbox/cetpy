@@ -2,13 +2,13 @@
 DataSet
 =======
 
-This file defines a wrapper around a pandas DataFrame to add further
-convenient analysis using the knowledge of the cetpy Iterator of its system.
+This file defines a wrapper around a pandas DataFrame to add further convenient analysis using the knowledge of the
+cetpy Iterator of its system.
 """
 from __future__ import annotations
 
 from os.path import isdir, dirname
-from typing import List, Dict, Iterable, Tuple, Sequence, Any
+from typing import List, Dict, Iterable, Tuple, Sequence
 import numpy as np
 import pandas as pd
 import pickle
@@ -17,29 +17,20 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import statsmodels.api as sm
-from statsmodels.regression.linear_model import OLS, RegressionResults
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.neural_network import MLPRegressor
-import keras
-from keras import backend as K
-import keras_tuner
 
 from cetpy.Modules.SysML import Block, ValueProperty, value_property
 
-from cetpy.CaseTools.FilterFunctions import apply_filter, \
-    drop_no_variance_columns, apply_one_hot_encoding
-from cetpy.Modules.Utilities.Labelling import round_sig_figs, \
-    floor_sig_figs, ceil_sig_figs, unit_2_latex, name_2_unit, name_2_axis_label
+from cetpy.CaseTools.FilterFunctions import apply_filter, drop_no_variance_columns, apply_one_hot_encoding
+from cetpy.Modules.Utilities.Labelling import round_sig_figs, floor_sig_figs, ceil_sig_figs, unit_2_latex, \
+    name_2_unit, name_2_axis_label
 
 
-binary_color_maps = ['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
-                     'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
-                     'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn'] * 3
+binary_color_maps = ['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd',
+                     'RdPu', 'BuPu', 'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn'] * 3
 
 
 def get_numerical_correlation_threshold(threshold: str | float) -> float:
-    """Return float threshold for correlation label. Return float if a float
-    is passed."""
+    """Return float threshold for correlation label. Return float if a float is passed."""
     if isinstance(threshold, float):
         return threshold
     else:
@@ -57,28 +48,22 @@ def get_numerical_correlation_threshold(threshold: str | float) -> float:
 
 
 class DataSet(Block):
-    """Congruent Engineering Toolbox DataSet, a wrapper around a pandas
-    DataFrame with additional analysis functionality."""
+    """Congruent Engineering Toolbox DataSet, a wrapper around a pandas DataFrame with additional analysis
+    functionality."""
 
     drop_errors = ValueProperty(permissible_types_list=bool)
     drop_no_variance = ValueProperty(permissible_types_list=bool)
     one_hot_encoding = ValueProperty(permissible_types_list=bool)
-    filter_list = ValueProperty(
-        permissible_types_list=[str, list, type(None)])
-    error_filter = ValueProperty(
-        permissible_types_list=[str, list, type(None)])
-    input_df = ValueProperty(
-        permissible_types_list=[pd.DataFrame, type(None)])
-    units = ValueProperty(
-        permissible_types_list=[dict, type(None)])
-    axis_labels = ValueProperty(
-        permissible_types_list=[dict, type(None)])
-    last_input_column = ValueProperty(
-        permissible_types_list=[str, type(None)])
+    filter_list = ValueProperty(permissible_types_list=[str, list, type(None)])
+    error_filter = ValueProperty(permissible_types_list=[str, list, type(None)])
+    input_df = ValueProperty(permissible_types_list=[pd.DataFrame, type(None)])
+    units = ValueProperty(permissible_types_list=[dict, type(None)])
+    axis_labels = ValueProperty(permissible_types_list=[dict, type(None)])
+    last_input_column = ValueProperty(permissible_types_list=[str, type(None)])
 
     __init_parameters__ = Block.__init_parameters__.copy() + [
-        'drop_errors', 'drop_no_variance', 'one_hot_encoding', 'filter_list',
-        'error_filter', 'input_df', 'units', 'axis_labels', 'last_input_column'
+        'drop_errors', 'drop_no_variance', 'one_hot_encoding', 'filter_list', 'error_filter', 'input_df', 'units',
+        'axis_labels', 'last_input_column'
     ]
 
     _reset_dict = Block._reset_dict.copy()
@@ -113,29 +98,24 @@ class DataSet(Block):
         if units is None or axis_labels is None:
             names = [s.split('.')[-1] for s in raw_df.columns]
             if units is None:
-                self.units = {col: name_2_unit(name)
-                              for col, name in zip(raw_df.columns, names)}
+                self.units = {col: name_2_unit(name) for col, name in zip(raw_df.columns, names)}
             if axis_labels is None:
-                self.axis_labels = {
-                    col: name_2_axis_label(name)
-                    for col, name in zip(raw_df.columns, names)}
+                self.axis_labels = {col: name_2_axis_label(name) for col, name in zip(raw_df.columns, names)}
 
     @value_property(input_permissible=True,
                     permissible_types_list=[str, type(None)])
     def last_input_column(self) -> str:
         """Return key of last input column.
 
-        Can be supplied manually, if None is provided, the column is
-        evaluated automatically based on the structure of the cetpy Case
-        Runner.
+        Can be supplied manually, if None is provided, the column is evaluated automatically based on the structure
+        of the cetpy CaseRunner.
         """
         df = self.raw_df
         try:
             idx_solved = df.columns.get_loc('solved') - 1
         except AttributeError:
-            raise ValueError('The last input column of the dataframe could '
-                             'not be evaluated automatically. Please set the '
-                             'column manually with DataSet.last_input_column')
+            raise ValueError('The last input column of the dataframe could not be evaluated automatically. Please set '
+                             'the column manually with DataSet.last_input_column')
         return df.columns[idx_solved]
 
     @property
@@ -153,10 +133,9 @@ class DataSet(Block):
     def raw_df(self) -> pd.DataFrame:
         """Unprocessed dataset as a pandas Dataframe.
 
-        The dataframe should first have the input columns, then the output
-        columns. If the dataframe still contains the original solved or
-        error related columns, the separation can be detected automatically.
-        Otherwise, a last_input_column value will need to be specified.
+        The dataframe should first have the input columns, then the output columns. If the dataframe still contains
+        the original solved or error related columns, the separation can be detected automatically. Otherwise,
+        a last_input_column value will need to be specified.
 
         See Also
         --------
@@ -172,8 +151,7 @@ class DataSet(Block):
     def df_errors(self) -> pd.DataFrame:
         """Dataframe of only cases with errors.
 
-        Includes both detected errors and those selected by the custom error
-        filter.
+        Includes both detected errors and those selected by the custom error filter.
 
         See Also
         --------
@@ -202,16 +180,14 @@ class DataSet(Block):
         DataSet.df
         """
         return self.raw_df.drop(index=self.df_errors.index,
-                                columns=['errored', 'error_class',
-                                         'error_message', 'error_location'],
+                                columns=['errored', 'error_class', 'error_message', 'error_location'],
                                 errors='ignore')
 
     @property
     def df(self) -> pd.DataFrame:
         """DataFrame with all enabled processing functions applied.
 
-        Processed dataframe is stored for performance. This can be reset
-        with the DataSet.reset() function.
+        Processed dataframe is stored for performance. This can be reset with the DataSet.reset() function.
 
         Filters are applied in the following order:
             1. Drop Errors (including custom error filter)
@@ -241,8 +217,7 @@ class DataSet(Block):
             # transition input column. Verify and re-detect if necessary.
             if self.last_input_column not in df.columns:
                 self._output_last_input_column = [
-                    col for col in df.columns
-                    if col in list(self.raw_df.keys())][-1]
+                    col for col in df.columns if col in list(self.raw_df.keys())][-1]
 
             if self.one_hot_encoding:
                 # One-Hot Encoding appends the newly created columns at the
@@ -251,8 +226,7 @@ class DataSet(Block):
                 # order to maintain separation. Given new columns are
                 # appended, the last column of the inputs needs to be
                 # reevaluated.
-                df_input = pd.get_dummies(
-                    df.loc[:, :self.last_input_column])
+                df_input = pd.get_dummies(df.loc[:, :self.last_input_column])
                 self._output_last_input_column = df_input.columns[-1]
                 df = apply_one_hot_encoding(df, df_input.columns)
 
@@ -338,8 +312,7 @@ class DataSet(Block):
         DataSet.output_keys
         DataSet.input_keys_raw
         """
-        return list(self.raw_df.select_dtypes(
-            exclude=['bool_', 'number']).columns)
+        return list(self.raw_df.select_dtypes(exclude=['bool_', 'number']).columns)
     # endregion
 
     def get_df_custom_level(self, idx_start_filter: int = None,
@@ -351,31 +324,26 @@ class DataSet(Block):
         Parameters
         ----------
         idx_start_filter: optional, default = None
-            Start index of the filter list. If this index is higher than the
-            length of the filter list, a copy of the original dataframe is
-            returned.
+            Start index of the filter list. If this index is higher than the length of the filter list, a copy of the
+            original dataframe is returned.
 
         idx_end_filter: optional, default = None
-            End index of the filter list. If this index is higher than the
-            length of the filter list, the list is returned until the end.
-            if this index is smaller than the start index, just the
-            filter at the start index is applied.
+            End index of the filter list. If this index is higher than the length of the filter list, the list is
+            returned until the end. if this index is smaller than the start index, just the filter at the start index is
+            applied.
 
         drop_errors: optional, default = None
-            Bool flag whether to drop errors from the dataframe. Also drops
-            error related columns. If set to None, the DataSet instance
-            default value is used.
+            Bool flag whether to drop errors from the dataframe. Also drops error related columns. If set to None,
+            the DataSet instance default value is used.
 
         drop_no_variance: optional, default = None
-            Bool flag whether to drop columns with no variance from the
-            dataframe. If set to None, the DataSet instance default value is
-            used.
+            Bool flag whether to drop columns with no variance from the dataframe. If set to None, the DataSet
+            instance default value is used.
 
         Returns
         -------
         pd.DataFrame
-            Processed dataframe from the raw dataframe with the chosen
-            filters applied.
+            Processed dataframe from the raw dataframe with the chosen filters applied.
         """
         if drop_errors or (drop_errors is None and self.drop_errors):
             df = self.df_no_errors
@@ -384,36 +352,31 @@ class DataSet(Block):
 
         # Slice Filter
         filter_list = self.filter_list
-        if (idx_start_filter is None and idx_end_filter is None
-                or isinstance(filter_list, str)):
+        if idx_start_filter is None and idx_end_filter is None or isinstance(filter_list, str):
             pass
         else:
             filter_list = filter_list[idx_start_filter: idx_end_filter]
 
         df = apply_filter(df, filter_list, join_and=True)
 
-        if drop_no_variance or (
-                drop_no_variance is None and self.drop_no_variance):
+        if drop_no_variance or (drop_no_variance is None and self.drop_no_variance):
             df = drop_no_variance_columns(df)
 
         if self.one_hot_encoding:
             df = apply_one_hot_encoding(df, self.input_keys_raw)
         return df
 
-    def get_dfs_filter_levels(self, stacked: bool = True
-                              ) -> Dict[str, pd.DataFrame]:
-        """Return list of dataframes corresponding to the raw, no errors (if
-        DataSet.drop_errors is True), and subsequently each cumulative filter
-        level.
+    def get_dfs_filter_levels(self, stacked: bool = True) -> Dict[str, pd.DataFrame]:
+        """Return list of dataframes corresponding to the raw, no errors (if DataSet.drop_errors is True),
+        and subsequently each cumulative filter level.
 
         Useful to analyse scope, validity, and detail changes with filtering.
 
         Parameters
         ----------
         stacked: optional, default = True
-            Bool flag whether to stack filters. E.g. show the incremental
-            improvement of the full filter set (True) or the impact of the
-            individual filters on the original dataset (False).
+            Bool flag whether to stack filters. E.g. show the incremental improvement of the full filter set (True)
+            or the impact of the individual filters on the original dataset (False).
         """
         # Go through custom level function, to match no variance and
         # one-hot-encoding post-processing.
@@ -422,8 +385,7 @@ class DataSet(Block):
             dfs['no_errors'] = self.get_df_custom_level(None, 0, True, None)
         idx_start = None
         for i in range(len(self.filter_list)):
-            dfs[self.filter_list[i]] = self.get_df_custom_level(
-                idx_start, i + 1, None, None)
+            dfs[self.filter_list[i]] = self.get_df_custom_level(idx_start, i + 1, None, None)
             if not stacked:
                 idx_start = i + 1
         return dfs
@@ -437,65 +399,50 @@ class DataSet(Block):
         Parameters
         ----------
         split_key
-            Dataframe column key to split the dataset. If this is a
-            categorical key and one-hot-encoding is enabled, both pre- and
-            post-encoding keys are supported.
+            Dataframe column key to split the dataset. If this is a categorical key and one-hot-encoding is enabled,
+            both pre- and post-encoding keys are supported.
 
         split_set: optional, default = None
-            A definition of the set to be created. If the split_key is a
-            categorical value. This property is ignored, and a subset for
-            each categorical value is created. If the split_key is a
-            continuous property, the split_set can either be an integer,
-            in which case the integer describes the amount of sets to split
-            the continuous variable into. Alternatively the set can be a 1d
-            numpy array where a set is created from each value to the next of
-            the split_key data.
+            A definition of the set to be created. If the split_key is a categorical value. This property is ignored,
+            and a subset for each categorical value is created. If the split_key is a continuous property,
+            the split_set can either be an integer, in which case the integer describes the amount of sets to split
+            the continuous variable into. Alternatively the set can be a 1d numpy array where a set is created from
+            each value to the next of the split_key data.
 
         maintain_raw: optional, default = None
-            Bool flag whether the new dataset should maintain the full depth to
-            the raw dataframe. This can sometimes be easier for categorical
-            filtering with one-hot encoding. Otherwise, it is recommendable
-            to drop the already filtered rows to improve performance. When
-            set to None, attempts False, if the split_key is categorical
-            then True.
+            Bool flag whether the new dataset should maintain the full depth to the raw dataframe. This can sometimes
+            be easier for categorical filtering with one-hot encoding. Otherwise, it is recommendable to drop the
+            already filtered rows to improve performance. When set to None, attempts False, if the split_key is
+            categorical then True.
 
         Notes
         -----
         if the split_set of a continuous variable is defined as an integer.
-        The created sets are automatically rounded to sensible s
+        The created sets are automatically rounded to sensible significant figure.
         """
         if maintain_raw is None:
             maintain_raw = split_key not in self.df.columns
         if maintain_raw:
             if split_key not in self.raw_df.columns:
-                raise KeyError("Split key not in raw dataframe, consider "
-                               "setting maintain_raw to False or applying "
+                raise KeyError("Split key not in raw dataframe, consider setting maintain_raw to False or applying "
                                "one-hot-encoding on the raw dataset.")
             split_data = self.raw_df.loc[:, split_key]
         else:
             if split_key not in self.df.columns:
-                raise KeyError("Split key not in processed dataframe, "
-                               "consider setting maintain_raw to True or "
-                               "adjusting the categorical split key to a "
-                               "specific post one-hot-encoding category.")
+                raise KeyError("Split key not in processed dataframe, consider setting maintain_raw to True or "
+                               "adjusting the categorical split key to a specific post one-hot-encoding category.")
             split_data = self.df.loc[:, split_key]
 
         datasets = []
-        if (split_data.nunique() in [1, 2]
-                and not isinstance(split_data.iloc[0], str)):
+        if split_data.nunique() in [1, 2] and not isinstance(split_data.iloc[0], str):
             # Binary Data
-            ds_0 = self.subset(split_key + ' == '
-                               + str(np.unique(split_data)[0]),
-                               maintain_raw=maintain_raw)
-            ds_1 = self.subset(split_key + ' != '
-                               + str(np.unique(split_data)[0]),
-                               maintain_raw=maintain_raw)
+            ds_0 = self.subset(split_key + ' == ' + str(np.unique(split_data)[0]), maintain_raw=maintain_raw)
+            ds_1 = self.subset(split_key + ' != ' + str(np.unique(split_data)[0]), maintain_raw=maintain_raw)
             datasets = [ds_0, ds_1]
         elif split_key in self.keys_categorical:
             # Categorical Data
             for val in np.unique(split_data):
-                datasets += [self.subset(split_key + ' == "' + val + '"',
-                                         maintain_raw=maintain_raw)]
+                datasets += [self.subset(split_key + ' == "' + val + '"', maintain_raw=maintain_raw)]
         else:
             # Numerical Data
             limit_data = self.df.loc[:, split_key]
@@ -506,36 +453,29 @@ class DataSet(Block):
                     ceil_sig_figs(limit_data.max(), sig_figs), split_set + 1)
                 # Round to sig fig in the center as well.
                 for i in range(1, len(split_set_new) - 1):
-                    split_set_new[i] = round_sig_figs(
-                        split_set_new[i], sig_figs)
+                    split_set_new[i] = round_sig_figs(split_set_new[i], sig_figs)
                 split_set = split_set_new
             for i in range(len(split_set) - 1):
                 datasets += [self.subset(
-                    str(split_set[i]) + " <= " + split_key
-                    + " <= " + str(split_set[i + 1]),
-                    maintain_raw=maintain_raw)]
+                    str(split_set[i]) + " <= " + split_key + " <= " + str(split_set[i + 1]), maintain_raw=maintain_raw)]
 
         return datasets
 
-    def subset(self, new_filter: None | str | List[str] = None,
-               maintain_raw: bool = False) -> DataSet:
-        """Return a further dataset utilising the current processed
-        dataframe as its base dataframe. Disables one-hot encoding and drop
-        errors on the new subset if raw is not maintained. These actions only
-        need to be performed once.
+    def subset(self, new_filter: None | str | List[str] = None, maintain_raw: bool = False) -> DataSet:
+        """Return a further dataset utilising the current processed dataframe as its base dataframe. Disables one-hot
+        encoding and drop errors on the new subset if raw is not maintained. These actions only need to be performed
+        once.
 
         Parameters
         ----------
         new_filter: optional, default = None
-            Filter to define the sub-set. Can be none, just to match the
-            current dataset, a string for a single filter, or a list of
-            strings for multiple filters.
+            Filter to define the sub-set. Can be none, just to match the current dataset, a string for a single
+            filter, or a list of strings for multiple filters.
 
         maintain_raw: optional, default = False
-            Bool flag whether the new dataset should maintain the full depth to
-            the raw dataframe. This can sometimes be easier for categorical
-            filtering with one-hot encoding. Otherwise, it is recommendable
-            to drop the already filtered rows to improve performance.
+            Bool flag whether the new dataset should maintain the full depth to the raw dataframe. This can sometimes
+            be easier for categorical filtering with one-hot encoding. Otherwise, it is recommendable to drop the
+            already filtered rows to improve performance.
         """
         subset = self.copy()
 
@@ -562,11 +502,9 @@ class DataSet(Block):
     # endregion
 
     # region Extensions
-    def get_model_xy(self, output_key: str,
-                     input_keys: str | List[str] | None = None,
+    def get_model_xy(self, output_key: str, input_keys: str | List[str] | None = None,
                      add_constant: bool = True) -> (np.ndarray, np.ndarray):
-        """Return prepared X, y values of the dataset for input into a
-        regression model."""
+        """Return prepared X, y values of the dataset for input into a regression model."""
         if input_keys is None:
             input_keys = self.input_keys
         x = self.df.loc[:, input_keys].astype(float)
@@ -574,237 +512,6 @@ class DataSet(Block):
             x = sm.add_constant(x)
         y = self.df.loc[:, output_key]
         return x, y
-
-    def get_ols(self, output_key: str,
-                input_keys: str | List[str] | None = None,
-                add_constant: bool = True) -> RegressionResults:
-        """Return Ordinary Least Squares (OLS) model of the dataset."""
-        x, y = self.get_model_xy(output_key, input_keys, add_constant)
-        return OLS(y, x).fit()
-
-    def get_random_forest_regressor(
-            self, output_key: str,
-            input_keys: str | List[str] | None = None,
-            add_constant: bool = True, **kwargs) -> RandomForestRegressor:
-        """Return Scikit-Learn Random Forest Regressor of the dataset."""
-        regressor = RandomForestRegressor(**kwargs)
-        regressor.fit(*self.get_model_xy(output_key, input_keys, add_constant))
-        return regressor
-
-    def get_mlp_regressor(
-            self, output_key: str,
-            input_keys: str | List[str] | None = None,
-            add_constant: bool = True, **kwargs) -> MLPRegressor:
-        """Return Scikit-Learn MLP Neural Network Regressor of the dataset."""
-        regressor = MLPRegressor(**kwargs)
-        regressor.fit(*self.get_model_xy(output_key, input_keys, add_constant))
-        return regressor
-
-    @staticmethod
-    def __get_compiled_keras_regressor__(
-            n_output_dim: int,
-            normalizer: keras.layers.Normalization,
-            out_denormalizer: keras.layers.Normalization,
-            n_hidden_layers: int,
-            dense_layer_units: int,
-            dense_activation: str = 'relu6',
-            learning_rate: float = 1e-2,
-            loss: str = 'mean_squared_error') -> keras.Model:
-        """Get Tensorflow Keras regressor."""
-        K.clear_session()
-        model = keras.Sequential([
-            normalizer,
-            *[keras.layers.Dense(dense_layer_units,
-                                 activation=dense_activation,
-                                 name='dense_' + str(n))
-              for n in range(n_hidden_layers)],
-            keras.layers.Dense(n_output_dim, name='dense_output'),
-            out_denormalizer
-        ])
-        model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-            loss=loss)
-
-        return model
-
-    @staticmethod
-    def __get_keras_normalizers__(
-            X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.DataFrame
-            ) -> (keras.layers.Normalization, keras.layers.Normalization):
-        """Return keras normalisation and de-normalisation layers for deep
-        neural networks."""
-        # Normalize to mean 0, variance 1
-        normalizer = keras.layers.Normalization(name='normalizer')
-        normalizer.adapt(np.asarray(X).astype(float))
-        # De-Normalize from mean 0, variance 1
-        de_normalizer = keras.layers.Normalization(invert=True,
-                                                   name='de-normalizer')
-        if len(X.shape) == 2:
-            normalizer.adapt(np.asarray(X).astype(float))
-        else:
-            normalizer.adapt(np.atleast_2d(X).T.astype(float))
-        if len(y.shape) == 2:
-            de_normalizer.adapt(np.asarray(y).astype(float))
-        else:
-            de_normalizer.adapt(np.atleast_2d(y).T.astype(float))
-        return normalizer, de_normalizer
-
-    def get_keras_regressor(
-            self, output_key: str,
-            input_keys: str | List[str] | None = None,
-            add_constant: bool = True,
-            test_size: float = 0.1,
-            n_hidden_layers: int = None,
-            dense_units: int = None,
-            batch_size: int = None,
-            epochs: int = None,
-            ** kwargs) -> (keras.Model, Any):
-        """Get Tensorflow Keras regressor."""
-        X, y = self.get_model_xy(output_key, input_keys, add_constant)
-        n_input_dim = X.shape[1]
-        try:
-            n_output_dim = y.shape[1]
-        except IndexError:
-            n_output_dim = 1
-        if n_hidden_layers is None:
-            n_hidden_layers = 2
-        if dense_units is None:
-            dense_units = int(2 ** (np.ceil(np.log2(n_input_dim)) + 2))
-        if batch_size is None:
-            batch_size = X.shape[0]
-        if epochs is None:
-            epochs = 500
-
-        normalizer, de_normaliser = self.__get_keras_normalizers__(X, y)
-
-        model = self.__get_compiled_keras_regressor__(
-            n_output_dim, normalizer, de_normaliser,
-            n_hidden_layers, dense_units,
-            dense_activation=kwargs.get('dense_activation', 'relu6'),
-            learning_rate=kwargs.get('learning_rate', 1e-2),
-            loss=kwargs.get('loss', 'mean_squared_error')
-        )
-
-        callbacks = [
-            keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,
-                                          restore_best_weights=True)]
-
-        history = model.fit(X, y, batch_size=batch_size, epochs=epochs,
-                            validation_split=test_size, callbacks=callbacks)
-
-        return model, history
-
-    def get_keras_regressor_optimized(
-            self, output_key: str,
-            input_keys: str | List[str] | None = None,
-            add_constant: bool = True,
-            test_size: float = 0.1,
-            batch_size: int = None,
-            optimization_epochs: int = None,
-            final_epochs: int = None,
-            tuner_model: str = 'bayesian',
-            n_hidden_layers: List[int] | int | None = None,
-            dense_units: List[int] | int | None = None,
-            dense_activation: List[str] | str | None = None,
-            learning_rate: List[float] | float | None = None,
-            **kwargs) -> keras.Model:
-        """Get Tensorflow Keras regressor."""
-        X, y = self.get_model_xy(output_key, input_keys, add_constant)
-        try:
-            n_output_dim = y.shape[1]
-        except IndexError:
-            n_output_dim = 1
-        if batch_size is None:
-            batch_size = X.shape[0]
-        if optimization_epochs is None:
-            optimization_epochs = 100
-        if final_epochs is None:
-            final_epochs = 500
-        if n_hidden_layers is None:
-            n_hidden_layers = [1, 4, 1]
-        if dense_units is None:
-            dense_units = [16, 1024, 16]
-        if dense_activation is None:
-            dense_activation = ['relu6', 'tanh']
-        if learning_rate is None:
-            learning_rate = [1e-4, 0.25]
-
-        normalizer, de_normaliser = self.__get_keras_normalizers__(X, y)
-
-        def build_model(hp):
-            if isinstance(n_hidden_layers, list):
-                n_layers = hp.Int(
-                    'n_hidden_layers', min_value=n_hidden_layers[0],
-                    max_value=n_hidden_layers[1], step=n_hidden_layers[2])
-            else:
-                n_layers = n_hidden_layers
-            if isinstance(dense_units, list):
-                units = hp.Int(
-                    'dense_units', min_value=dense_units[0],
-                    max_value=dense_units[1], step=dense_units[2])
-            else:
-                units = dense_units
-            if isinstance(dense_activation, list):
-                activation = hp.Choice(
-                    'dense_activation', values=dense_units)
-            else:
-                activation = dense_activation
-            if isinstance(learning_rate, list):
-                l_rate = hp.Float(
-                    'learning_rate', min_value=learning_rate[0],
-                    max_value=learning_rate[1])
-            else:
-                l_rate = learning_rate
-
-            return self.__get_compiled_keras_regressor__(
-                n_output_dim, normalizer, de_normaliser, n_layers, units,
-                dense_activation=activation,
-                learning_rate=l_rate,
-                loss=kwargs.get('loss', 'mean_squared_error')
-            )
-
-        callbacks = [
-            keras.callbacks.EarlyStopping(monitor='val_loss', patience=10,
-                                          restore_best_weights=True)]
-
-        if tuner_model == 'bayesian':
-            tuner = keras_tuner.tuners.BayesianOptimization(
-                build_model,
-                objective=keras_tuner.Objective('val_loss', direction="min"),
-                max_trials=kwargs.get('max_trials', 200),
-                overwrite=True)
-
-            tuner.search(X, y, batch_size=batch_size,
-                         epochs=optimization_epochs,
-                         validation_split=test_size,
-                         callbacks=callbacks)
-
-        elif tuner_model == 'hyperband':
-            tuner = keras_tuner.tuners.Hyperband(
-                build_model,
-                objective='val_loss',
-                max_epochs=optimization_epochs,
-                executions_per_trial=kwargs.get('executions_per_trial', 2),
-                overwrite=True)
-
-            tuner.search(X, y, batch_size=batch_size,
-                         validation_split=test_size,
-                         callbacks=callbacks)
-        else:
-            raise ValueError("Unrecognised tuner_model, must be 'bayesian' "
-                             "or 'hyperband'.")
-
-        model = tuner.get_best_models(num_models=2)[0]
-
-        if final_epochs > optimization_epochs:
-            # Recreate the callbacks to ensure they can be deep-copied.
-            callbacks = [keras.callbacks.EarlyStopping(
-                monitor='val_loss', patience=10, restore_best_weights=True)]
-
-            model.fit(X, y, batch_size=batch_size,  epochs=final_epochs,
-                      validation_split=test_size, callbacks=callbacks)
-
-        return model
     # endregion
 
     # region Saving
@@ -838,8 +545,7 @@ class DataSet(Block):
 
     @property
     def n_cases_fraction(self) -> float:
-        """Return fraction of cases selected post filtering compared to
-        original dataframe.
+        """Return fraction of cases selected post filtering compared to original dataframe.
 
         See Also
         --------
@@ -850,8 +556,7 @@ class DataSet(Block):
 
     @property
     def n_errors(self) -> int:
-        """Return number of cases with recognised errors. Includes the
-        custom error filter.
+        """Return number of cases with recognised errors. Includes the custom error filter.
 
         See Also
         --------
@@ -861,8 +566,7 @@ class DataSet(Block):
 
     @property
     def n_errors_fraction(self) -> float:
-        """Return fraction of cases with recognised errors compared to
-        original dataframe.
+        """Return fraction of cases with recognised errors compared to original dataframe.
 
         See Also
         --------
@@ -874,11 +578,9 @@ class DataSet(Block):
 
     # region Correlations
     def corr(self, key: str = None, sort: bool = True,
-             split_input_output: bool = False,
-             alternate_df: pd.DataFrame = None) -> pd.DataFrame:
-        """Return Pearson correlation coefficient matrix for the filtered
-        dataframe or for a selected key therein. The matrix is optionally
-        sorted in descending order.
+             split_input_output: bool = False, alternate_df: pd.DataFrame = None) -> pd.DataFrame:
+        """Return Pearson correlation coefficient matrix for the filtered dataframe or for a selected key therein.
+        The matrix is optionally sorted in descending order.
 
         Degree of correlation:
             - Perfect: |C| ~ 1
@@ -890,24 +592,22 @@ class DataSet(Block):
         Parameters
         ----------
         key: optional, default = None
-            Input or output key to down-select correlation matrix. If the
-            default none is passed, the full matrix is returned.
+            Input or output key to down-select correlation matrix. If the default none is passed, the full matrix is
+            returned.
 
         sort: optional, default = True
-            Bool flag whether to sort the down-selected matrix by absolute
-            descending order. If no key is passed, this option is ignored.
+            Bool flag whether to sort the down-selected matrix by absolute descending order. If no key is passed,
+            this option is ignored.
 
         split_input_output: optional, default = False
-            Bool flag whether to format the resulting symmetrical matrix to
-            split input and output columns. If set to True, rows are the
-            model inputs, and columns are the model outputs. If examining a
-            model as a black box, this may be preferable to reduce clutter.
+            Bool flag whether to format the resulting symmetrical matrix to split input and output columns. If set to
+            True, rows are the model inputs, and columns are the model outputs. If examining a model as a black box,
+            this may be preferable to reduce clutter.
 
         alternate_df: optional, default = None
-            An alternate dataframe to use for the analysis. If None is
-            passed, the main dataframe is used. This functionality is used
-            for example by the filter analysis functions. Please note,
-            the dataframe is still split with the main input and output keys.
+            An alternate dataframe to use for the analysis. If None is passed, the main dataframe is used. This
+            functionality is used for example by the filter analysis functions. Please note, the dataframe is still
+            split with the main input and output keys.
 
         Returns
         -------
@@ -920,8 +620,7 @@ class DataSet(Block):
             df = alternate_df
         corr = df.corr()
         if split_input_output:
-            corr.drop(columns=self.input_keys, index=self.output_keys,
-                      inplace=True)
+            corr.drop(columns=self.input_keys, index=self.output_keys, inplace=True)
         if key is not None:
             if key in self.input_keys:
                 corr = corr.loc[key, :]
@@ -932,12 +631,10 @@ class DataSet(Block):
                 corr = corr.sort_values(ascending=False, key=abs)
         return corr
 
-    def get_significant_keys(self, key: str,
-                             threshold: str | float = 'high',
-                             alternate_df: pd.DataFrame = None
+    def get_significant_keys(self, key: str, threshold: str | float = 'high', alternate_df: pd.DataFrame = None
                              ) -> List[str]:
-        """Return list of columns whose Pearson correlation coefficient is
-        above the given threshold for a given input key.
+        """Return list of columns whose Pearson correlation coefficient is above the given threshold for a given
+        input key.
 
         Degree of correlation:
             - Perfect: |C| ~ 1, here defined as 0.98 <= |C| < 1
@@ -949,17 +646,15 @@ class DataSet(Block):
         Parameters
         ----------
         key
-            Input or output key for which the significant keys should be
-            identified.
+            Input or output key for which the significant keys should be identified.
 
         threshold: optional, default = 'high'
             Threshold above which a correlation is deemed significant.
 
         alternate_df: optional, default = None
-            An alternate dataframe to use for the analysis. If None is
-            passed, the main dataframe is used. This functionality is used
-            for example by the filter analysis functions. Please note,
-            the dataframe is still split with the main input and output keys.
+            An alternate dataframe to use for the analysis. If None is passed, the main dataframe is used. This
+            functionality is used for example by the filter analysis functions. Please note, the dataframe is still
+            split with the main input and output keys.
 
         See Also
         --------
@@ -970,17 +665,13 @@ class DataSet(Block):
         Pearson Correlation coefficient is suitable for linear relationships.
         """
         threshold = get_numerical_correlation_threshold(threshold)
-        corr = self.corr(key=key, sort=True, split_input_output=False,
-                         alternate_df=alternate_df)
+        corr = self.corr(key=key, sort=True, split_input_output=False, alternate_df=alternate_df)
         sig_keys = corr.index[corr.abs() >= threshold]
         return sig_keys[sig_keys != key]
 
-    def correlation_count_analysis(self, key: str,
-                                   alternate_df: pd.DataFrame = None
-                                   ) -> pd.Series:
-        """Return dataframe of correlation counts at various thresholds for
-        requested key. Notably each threshold does not contain the entries
-        of higher levels.
+    def correlation_count_analysis(self, key: str, alternate_df: pd.DataFrame = None) -> pd.Series:
+        """Return dataframe of correlation counts at various thresholds for requested key. Notably each threshold
+        does not contain the entries of higher levels.
 
         Parameters
         ----------
@@ -988,21 +679,19 @@ class DataSet(Block):
             Input or output key for which the analysis should be conducted.
 
         alternate_df: optional, default = None
-            An alternate dataframe to use for the analysis. If None is
-            passed, the main dataframe is used. This functionality is used
-            for example by the filter analysis functions. Please note,
-            the dataframe is still split with the main input and output keys.
+            An alternate dataframe to use for the analysis. If None is passed, the main dataframe is used. This
+            functionality is used for example by the filter analysis functions. Please note, the dataframe is still
+            split with the main input and output keys.
 
         Returns
         -------
         pd.Series
-            Pandas Dataframe with the input columns as rows and the
-            thresholds perfect, high, moderate, low, and total as columns.
+            Pandas Dataframe with the input columns as rows and the thresholds perfect, high, moderate, low,
+            and total as columns.
         """
         df = pd.Series(dtype=int)
         for threshold in ['perfect', 'high', 'moderate', 'low']:
-            df.loc[threshold] = len(self.get_significant_keys(
-                key, threshold, alternate_df=alternate_df))
+            df.loc[threshold] = len(self.get_significant_keys(key, threshold, alternate_df=alternate_df))
         df.name = key
         df.loc['total'] = df.low.copy()
         # Subtract higher levels
@@ -1011,26 +700,22 @@ class DataSet(Block):
         df.high -= df.perfect
         return df.astype(int)
 
-    def input_correlation_count_analysis(self,
-                                         alternate_df: pd.DataFrame = None
-                                         ) -> pd.DataFrame:
-        """Return dataframe of correlation counts at various thresholds for
-        each input key. Notably each threshold does not contain the entries
-        of higher levels.
+    def input_correlation_count_analysis(self, alternate_df: pd.DataFrame = None) -> pd.DataFrame:
+        """Return dataframe of correlation counts at various thresholds for each input key. Notably each threshold
+        does not contain the entries of higher levels.
 
         Parameters
         ----------
         alternate_df: optional, default = None
-            An alternate dataframe to use for the analysis. If None is
-            passed, the main dataframe is used. This functionality is used
-            for example by the filter analysis functions. Please note,
-            the dataframe is still split with the main input and output keys.
+            An alternate dataframe to use for the analysis. If None is passed, the main dataframe is used. This
+            functionality is used for example by the filter analysis functions. Please note, the dataframe is still
+            split with the main input and output keys.
 
         Returns
         -------
         pd.DataFrame
-            Pandas Dataframe with the input columns as rows and the
-            thresholds perfect, high, moderate, low, and total as columns.
+            Pandas Dataframe with the input columns as rows and the thresholds perfect, high, moderate, low,
+            and total as columns.
 
         See Also
         --------
@@ -1038,18 +723,14 @@ class DataSet(Block):
         """
         df = pd.DataFrame()
         for key in self.input_keys:
-            df = pd.concat((df, self.correlation_count_analysis(
-                key, alternate_df=alternate_df)), axis=1)
+            df = pd.concat((df, self.correlation_count_analysis(key, alternate_df=alternate_df)), axis=1)
         return df.T
 
     # endregion
 
     # region Filter Analysis
-    def correlation_count_filter_progression(self, key: str,
-                                             stacked: bool = True
-                                             ) -> pd.DataFrame:
-        """Evaluate how each filter level affects the progression of
-        correlations on a specific input or output key.
+    def correlation_count_filter_progression(self, key: str, stacked: bool = True) -> pd.DataFrame:
+        """Evaluate how each filter level affects the progression of correlations on a specific input or output key.
 
         Parameters
         ----------
@@ -1057,40 +738,33 @@ class DataSet(Block):
             Input or output key for which the analysis should be conducted.
 
         stacked: optional, default = True
-            Bool flag whether to stack filters. E.g. show the incremental
-            improvement of the full filter set (True) or the impact of the
-            individual filters on the original dataset (False).
+            Bool flag whether to stack filters. E.g. show the incremental improvement of the full filter set (True)
+            or the impact of the individual filters on the original dataset (False).
 
         Returns
         -------
         pd.DataFrame
-            Pandas DataFrame with the rows representing each filter level
-            and the columns representing the thresholds.
+            Pandas DataFrame with the rows representing each filter level and the columns representing the thresholds.
         """
         df = pd.DataFrame(dtype=int)
         dfs = self.get_dfs_filter_levels(stacked=stacked)
         for level, value in dfs.items():
-            df_new = self.correlation_count_analysis(key,
-                                                     alternate_df=value)
+            df_new = self.correlation_count_analysis(key, alternate_df=value)
             df_new.name = level
             df = pd.concat((df, df_new), axis=1)
         return df
 
-    def get_case_count_with_filter_level(self, stacked: bool = True,
-                                         normed: bool = False) -> dict:
-        """Return dictionary with filter levels and number of cases in the
-        dataset.
+    def get_case_count_with_filter_level(self, stacked: bool = True, normed: bool = False) -> dict:
+        """Return dictionary with filter levels and number of cases in the dataset.
 
         Parameters
         ----------
         stacked: optional, default = True
-            Bool flag whether to stack filters. E.g. show the incremental
-            improvement of the full filter set (True) or the impact of the
-            individual filters on the original dataset (False).
+            Bool flag whether to stack filters. E.g. show the incremental improvement of the full filter set (True)
+            or the impact of the individual filters on the original dataset (False).
 
         normed: optional, default = False
-            Bool flag whether the values should be normalised against the
-            size of the initial dataset.
+            Bool flag whether the values should be normalised against the size of the initial dataset.
         """
         case_counts = {}
         dfs = self.get_dfs_filter_levels(stacked=stacked)
@@ -1100,23 +774,19 @@ class DataSet(Block):
                 case_counts[level] /= list(case_counts.values())[0]
         return case_counts
 
-    def get_filter_reduction_degrees(self, individual: bool = False,
-                                     stacked: bool = True) -> dict:
+    def get_filter_reduction_degrees(self, individual: bool = False, stacked: bool = True) -> dict:
         """Get reduction degree of each filter level.
 
         Parameters
         ----------
         individual: optional, default = False
-            Bool flag whether the reduction level of each filter should be
-            evaluated individually relative to the raw data frame or to a
-            previous reduction (select using the stacked parameter).
+            Bool flag whether the reduction level of each filter should be evaluated individually relative to the raw
+            data frame or to a previous reduction (select using the stacked parameter).
 
         stacked: optional, default = True
-            Bool flag whether to stack filters. E.g. show the incremental
-            improvement of the full filter set (True) or the impact of the
-            individual filters on the original dataset (False). Note,
-            the original dataset already includes the no_errors correction.
-            If this is not desired, set individual to True.
+            Bool flag whether to stack filters. E.g. show the incremental improvement of the full filter set (True)
+            or the impact of the individual filters on the original dataset (False). Note, the original dataset
+            already includes the no_errors correction. If this is not desired, set individual to True.
         """
         reductions = {}
         raw_df = self.raw_df
@@ -1126,12 +796,10 @@ class DataSet(Block):
             reductions['no_errors'] = n_no_errors / n_raw
         if individual:
             for s_filter in self.filter_list:
-                reductions[s_filter] = \
-                    raw_df.query(s_filter).shape[0] / n_raw
+                reductions[s_filter] = raw_df.query(s_filter).shape[0] / n_raw
         else:
             dfs = self.get_dfs_filter_levels(stacked=stacked)
-            if len(dfs) > 2 or (
-                    len(dfs) > 1 and list(dfs.keys())[1] != 'no_errors'):
+            if len(dfs) > 2 or (len(dfs) > 1 and list(dfs.keys())[1] != 'no_errors'):
                 n_last = n_no_errors
                 for level, df in dfs.items():
                     if level in ['raw', 'no_errors']:
@@ -1142,10 +810,8 @@ class DataSet(Block):
 
         return reductions
 
-    def get_filter_describes(self, key: str, stacked: bool = True
-                             ) -> pd.DataFrame:
-        """Get dataframe of pandas describe for each filter level in respect to
-        a specific column key.
+    def get_filter_describes(self, key: str, stacked: bool = True) -> pd.DataFrame:
+        """Get dataframe of pandas describe for each filter level in respect to a specific column key.
 
         Parameters
         ----------
@@ -1153,10 +819,9 @@ class DataSet(Block):
             Evaluation key on which pd.Describe is called.
 
         stacked: optional, default = True
-            Bool flag whether to stack filters. E.g. show the incremental
-            impact of the full filter set (True) or the impact of the
-            individual filters on the original dataset (False). Note,
-            the original dataset already includes the no_errors correction.
+            Bool flag whether to stack filters. E.g. show the incremental impact of the full filter set (True) or the
+            impact of the individual filters on the original dataset (False). Note, the original dataset already
+            includes the no_errors correction.
         """
         dfs = self.get_dfs_filter_levels(stacked=stacked)
         describes = pd.DataFrame()
@@ -1169,12 +834,9 @@ class DataSet(Block):
     # endregion
 
     # region Visualisation
-    def plot_input_correlation_count_analysis(self, stacked: bool = False,
-                                              ax: plt.Axes = None,
-                                              title: str = None
-                                              ) -> plt.Figure:
-        """Plot a bar-graph of the correlation threshold counts for input
-        parameters."""
+    def plot_input_correlation_count_analysis(self, stacked: bool = False, ax: plt.Axes = None,
+                                              title: str = None) -> plt.Figure:
+        """Plot a bar-graph of the correlation threshold counts for input parameters."""
         df = self.input_correlation_count_analysis()
         if ax is None:
             fig, ax = plt.subplots()
@@ -1185,21 +847,14 @@ class DataSet(Block):
 
         if stacked:
             ax.bar(x_axis, df.low, label='low', color='r')
-            ax.bar(x_axis, df.moderate, bottom=df.low,
-                   label='moderate', color='orange')
-            ax.bar(x_axis, df.high, bottom=df.low + df.moderate,
-                   label='high', color='g')
-            ax.bar(x_axis, df.perfect,
-                   bottom=df.low + df.moderate + df.high,
-                   label='perfect', color='b')
+            ax.bar(x_axis, df.moderate, bottom=df.low, label='moderate', color='orange')
+            ax.bar(x_axis, df.high, bottom=df.low + df.moderate, label='high', color='g')
+            ax.bar(x_axis, df.perfect, bottom=df.low + df.moderate + df.high, label='perfect', color='b')
         else:
             ax.bar(x_axis + 0.3, df.low, 0.2, label='low', color='r')
-            ax.bar(x_axis + 0.1, df.moderate, 0.2,
-                   label='moderate', color='orange')
-            ax.bar(x_axis - 0.1, df.high, 0.2,
-                   label='high', color='g')
-            ax.bar(x_axis - 0.3, df.perfect, 0.2,
-                   label='perfect', color='b')
+            ax.bar(x_axis + 0.1, df.moderate, 0.2, label='moderate', color='orange')
+            ax.bar(x_axis - 0.1, df.high, 0.2, label='high', color='g')
+            ax.bar(x_axis - 0.3, df.perfect, 0.2, label='perfect', color='b')
 
         ax.set_xticks(x_axis, df.index, rotation=45, ha="right")
         if title is None:
@@ -1218,10 +873,8 @@ class DataSet(Block):
                               ax: plt.Axes = None, absolute: bool = True,
                               title: str = None, y_label: str = None
                               ) -> plt.Figure:
-        """Plot a bar-graph of the correlation coefficients of relevant
-        keys for a given input key."""
-        df = self.corr(key=key, sort=True,
-                       split_input_output=split_input_output)
+        """Plot a bar-graph of the correlation coefficients of relevant keys for a given input key."""
+        df = self.corr(key=key, sort=True, split_input_output=split_input_output)
         threshold = get_numerical_correlation_threshold(threshold)
         if ax is None:
             fig, ax = plt.subplots()
@@ -1239,8 +892,7 @@ class DataSet(Block):
         ax.set_xticks(x_axis, df.index, rotation=45, ha="right")
         ax.set_ylim(0, 1)
         if title is None:
-            ax.set_title(f"{key.title().replace('_', ' ')} - "
-                         f"Significant Correlations")
+            ax.set_title(f"{key.title().replace('_', ' ')} - Significant Correlations")
         elif title == 'empty':
             pass
         else:
@@ -1259,9 +911,7 @@ class DataSet(Block):
             fig.tight_layout()
         return fig
 
-    def plot_correlation_count_filter_progression(self, key: str,
-                                                  ax: plt.Axes = None
-                                                  ) -> plt.Figure:
+    def plot_correlation_count_filter_progression(self, key: str, ax: plt.Axes = None) -> plt.Figure:
         """Plot a bar-graph of the correlation threshold counts for input
         parameters."""
         df = self.correlation_count_filter_progression(key)
@@ -1273,15 +923,12 @@ class DataSet(Block):
 
         x_axis = np.arange(len(df.columns))
 
-        ax.stackplot(x_axis, df[::-1], baseline='zero',
-                     labels=df.index[::-1],
-                     colors=['r', 'orange', 'g', 'b'])
+        ax.stackplot(x_axis, df[::-1], baseline='zero', labels=df.index[::-1], colors=['r', 'orange', 'g', 'b'])
 
         ax.set_xticks(x_axis, df.columns, rotation=45, ha="right")
         ax.set_title(f"{key}Input Correlation Thresholds")
         handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles[::-1], labels[::-1],
-                  title='Threshold', loc='upper left')
+        ax.legend(handles[::-1], labels[::-1], title='Threshold', loc='upper left')
         plt.grid()
         plt.tight_layout()
         return fig
@@ -1292,9 +939,7 @@ class DataSet(Block):
                                             ax: plt.Axes = None
                                             ) -> plt.Figure:
         """Plot line plot as number of cases decreases with filter levels."""
-        case_counts = self.get_case_count_with_filter_level(
-            stacked=stacked,
-            normed=normed)
+        case_counts = self.get_case_count_with_filter_level(stacked=stacked, normed=normed)
         if ax is None:
             fig, ax = plt.subplots()
         else:
@@ -1311,12 +956,10 @@ class DataSet(Block):
         plt.tight_layout()
         return fig
 
-    def plot_filter_reduction_degree(self, individual: bool = False,
-                                     stacked: bool = True,
+    def plot_filter_reduction_degree(self, individual: bool = False, stacked: bool = True,
                                      ax: plt.Axes = None) -> plt.Figure:
         """Plot line plot as number of cases decreases with filter levels."""
-        reduction_degrees = self.get_filter_reduction_degrees(
-            individual=individual, stacked=stacked)
+        reduction_degrees = self.get_filter_reduction_degrees(individual=individual, stacked=stacked)
         if ax is None:
             fig, ax = plt.subplots()
         else:
@@ -1326,15 +969,13 @@ class DataSet(Block):
 
         ax.bar(x_axis, reduction_degrees.values())
 
-        ax.set_xticks(x_axis, reduction_degrees.keys(),
-                      rotation=45, ha="right")
+        ax.set_xticks(x_axis, reduction_degrees.keys(), rotation=45, ha="right")
         ax.set_title("Filter Reduction Degrees")
         plt.grid()
         plt.tight_layout()
         return fig
 
-    def plot_filter_progression_box_plots(self, key: str,
-                                          stacked: bool = True,
+    def plot_filter_progression_box_plots(self, key: str, stacked: bool = True,
                                           ax: plt.Axes = None) -> plt.Figure:
         """Plot line plot as number of cases decreases with filter levels.
 
@@ -1353,8 +994,7 @@ class DataSet(Block):
         ax.boxplot(y_values, labels=dfs.keys())
 
         ax.set_xticks(x_axis, dfs.keys(), rotation=45, ha="right")
-        ax.set_title(key.title().replace('_', ' ')
-                     + "Filter Distribution Impact")
+        ax.set_title(key.title().replace('_', ' ') + "Filter Distribution Impact")
         plt.grid()
         plt.tight_layout()
         return fig
@@ -1386,8 +1026,7 @@ class DataSet(Block):
             Marker size value key
 
         key_color: optional, default = None
-            Marker color value key. If a categorical key is given,
-            each color gets a monotone color gradient.
+            Marker color value key. If a categorical key is given, each color gets a monotone color gradient.
 
         size_adj_factor: optional, default = 1.0
             Linear scaling factor on the marker size if a key_size is given.
@@ -1408,19 +1047,15 @@ class DataSet(Block):
             Dictionary of keyword argument to pass to the legend command.
 
         alternate_df: optional, default = None
-            An alternate dataframe to use as source. If None is
-            passed, the main dataframe is used. This functionality is used
-            for example by the filter analysis functions. Please note,
-            the dataframe is still interpreted with the stored unit and
-            axis_label dataframes.
+            An alternate dataframe to use as source. If None is passed, the main dataframe is used. This
+            functionality is used for example by the filter analysis functions. Please note, the dataframe is still
+            interpreted with the stored unit and axis_label dataframes.
 
         plot_raw: optional, default = False
-            Bool flag whether the raw data should be plotted beneath the
-            target date. Data is plotted in grey.
+            Bool flag whether the raw data should be plotted beneath the target date. Data is plotted in grey.
 
         plot_errors: optional, default = False
-            Bool flag whether the error data should be plotted beneath the
-            target date. Data is plotted in red.
+            Bool flag whether the error data should be plotted beneath the target date. Data is plotted in red.
 
         plot_only_errors: optional, default = False
             Bool flag whether only the error data should be plotted.
@@ -1429,8 +1064,8 @@ class DataSet(Block):
             Plot keyword arguments passed to the plotting function.
 
         kwargs: Optional
-            Keyword arguments used for additional plot adjustment,
-            e.g. disabling the color bar with colorbar=False, xlim, clim, ylim
+            Keyword arguments used for additional plot adjustment, e.g. disabling the color bar with colorbar=False,
+            xlim, clim, ylim
 
         See Also
         --------
@@ -1467,11 +1102,9 @@ class DataSet(Block):
         ax.grid()
 
         if plot_raw and not plot_only_errors:
-            ax.scatter(self.raw_df[key_x], self.raw_df[key_y_single],
-                       c='grey', **plot_kwargs, label='raw')
+            ax.scatter(self.raw_df[key_x], self.raw_df[key_y_single], c='grey', **plot_kwargs, label='raw')
         if plot_errors:
-            ax.scatter(self.df_errors[key_x], self.df_errors[key_y_single],
-                       c='red', **plot_kwargs, label='errors')
+            ax.scatter(self.df_errors[key_x], self.df_errors[key_y_single], c='red', **plot_kwargs, label='errors')
         if plot_only_errors:
             try:
                 df_errors = alternate_df['df_errors']
@@ -1481,19 +1114,15 @@ class DataSet(Block):
                 df_raw = self.raw_df
             error_filter = self.error_filter
             if error_filter is not None and error_filter != []:
-                df_errors_filter = apply_filter(df_raw, error_filter,
-                                                join_and=False)
-                df_errors_detected = df_errors.drop(
-                    index=df_errors_filter.index, errors='ignore')
+                df_errors_filter = apply_filter(df_raw, error_filter, join_and=False)
+                df_errors_detected = df_errors.drop(index=df_errors_filter.index, errors='ignore')
             else:
                 df_errors_filter = pd.DataFrame(columns=df_errors.columns)
                 df_errors_detected = df_errors.copy()
-            ax.scatter(df_errors_detected[key_x],
-                       df_errors_detected[key_y_single],
+            ax.scatter(df_errors_detected[key_x], df_errors_detected[key_y_single],
                        c='red', **plot_kwargs, label='Detected')
             if error_filter is not None and error_filter != []:
-                ax.scatter(df_errors_filter[key_x],
-                           df_errors_filter[key_y_single],
+                ax.scatter(df_errors_filter[key_x], df_errors_filter[key_y_single],
                            c='tab:orange', **plot_kwargs, label='Filter')
 
         for key in keys_y_plotting:
@@ -1502,20 +1131,13 @@ class DataSet(Block):
 
             if key_categorical is None:
                 if key_size is None and key_color is None:
-                    ax.scatter(df[key_x], df[key], label=key,
-                               **plot_kwargs)
+                    ax.scatter(df[key_x], df[key], label=key, **plot_kwargs)
                 elif key_size is None:
-                    ax.scatter(df[key_x], df[key], c=df[key_color],
-                               cmap='jet',
-                               label=key, **plot_kwargs)
+                    ax.scatter(df[key_x], df[key], c=df[key_color], cmap='jet', label=key, **plot_kwargs)
                 elif key_color is None:
-                    ax.scatter(df[key_x], df[key],
-                               s=df[key_size] * size_adj_factor,
-                               label=key, **plot_kwargs)
+                    ax.scatter(df[key_x], df[key], s=df[key_size] * size_adj_factor, label=key, **plot_kwargs)
                 else:
-                    ax.scatter(df[key_x], df[key],
-                               s=df[key_size] * size_adj_factor,
-                               c=df[key_color],
+                    ax.scatter(df[key_x], df[key], s=df[key_size] * size_adj_factor, c=df[key_color],
                                cmap='jet', label=key, **plot_kwargs)
             else:
                 keys_categorical = df.columns[
@@ -1525,29 +1147,20 @@ class DataSet(Block):
                     label_str = key_cat.replace(key_categorical + '_', '')
                     c_map = binary_color_maps[i_k + 2]
                     if key_size is None and key_color is None:
-                        ax.scatter(sub_df[key_x], sub_df[key],
-                                   label=label_str, **plot_kwargs)
+                        ax.scatter(sub_df[key_x], sub_df[key], label=label_str, **plot_kwargs)
                     elif key_size is None:
-                        ax.scatter(sub_df[key_x], sub_df[key],
-                                   c=sub_df[key_color], cmap=c_map,
+                        ax.scatter(sub_df[key_x], sub_df[key], c=sub_df[key_color], cmap=c_map,
                                    label=label_str, **plot_kwargs)
                     elif key_color is None:
-                        ax.scatter(sub_df[key_x], sub_df[key],
-                                   s=sub_df[key_size] * size_adj_factor,
+                        ax.scatter(sub_df[key_x], sub_df[key], s=sub_df[key_size] * size_adj_factor,
                                    label=label_str, **plot_kwargs)
                     else:
-                        ax.scatter(sub_df[key_x], sub_df[key],
-                                   s=sub_df[key_size] * size_adj_factor,
-                                   c=sub_df[key_color],
-                                   label=label_str, cmap=c_map,
-                                   **plot_kwargs)
+                        ax.scatter(sub_df[key_x], sub_df[key], s=sub_df[key_size] * size_adj_factor,
+                                   c=sub_df[key_color], label=label_str, cmap=c_map, **plot_kwargs)
 
-        if ((not isinstance(keys_y, str) or key_categorical is not None)
-                and not plot_only_errors):
-            if key_categorical is not None and 'title' not in \
-                    legend_kwargs.keys():
-                legend_kwargs['title'] = key_categorical.title().replace(
-                    '_', ' ')
+        if (not isinstance(keys_y, str) or key_categorical is not None) and not plot_only_errors:
+            if key_categorical is not None and 'title' not in legend_kwargs.keys():
+                legend_kwargs['title'] = key_categorical.title().replace('_', ' ')
             legend_1 = ax.legend(**legend_kwargs)
         elif plot_only_errors:
             if 'title' not in legend_kwargs.keys():
@@ -1557,18 +1170,15 @@ class DataSet(Block):
             legend_1 = None
 
         if x_label is None:
-            ax.set_xlabel(self.axis_labels[key_x] + ", "
-                          + unit_2_latex(self.units[key_x]))
+            ax.set_xlabel(self.axis_labels[key_x] + ", " + unit_2_latex(self.units[key_x]))
         else:
             ax.set_xlabel(x_label)
         if y_label is None:
-            ax.set_ylabel(self.axis_labels[key_y_single] + ", "
-                          + unit_2_latex(self.units[key_y_single]))
+            ax.set_ylabel(self.axis_labels[key_y_single] + ", " + unit_2_latex(self.units[key_y_single]))
         else:
             ax.set_ylabel(y_label)
 
-        if (key_color is not None and kwargs.get('colorbar', True)
-                and not plot_only_errors):
+        if key_color is not None and kwargs.get('colorbar', True) and not plot_only_errors:
             # Color bar location
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.15)
@@ -1584,21 +1194,16 @@ class DataSet(Block):
                 clim = [df[key_color].min(), df[key_color].max()]
             norm = mpl.colors.Normalize(clim[0], clim[1])
 
-            cbar = plt.colorbar(
-                mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-                cax=cax)
-            cbar.set_label(self.axis_labels[key_color] + ", "
-                           + unit_2_latex(self.units[key_color]))
+            cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
+            cbar.set_label(self.axis_labels[key_color] + ", " + unit_2_latex(self.units[key_color]))
 
         if key_size is not None and not plot_only_errors:
             sizes = np.round(np.linspace(df[key_size].min(),
                                          df[key_size].max(), 3))
-            labels = ["{:4.2g}".format(s) for s in sizes]
+            labels = ["{:.3g}".format(s) for s in sizes]
 
-            points = [ax.scatter([], [], s=s * size_adj_factor,
-                                 c='gray') for s in sizes]
-            ax.legend(points, labels, scatterpoints=1,
-                      title=key_size.title().replace('_', ' '), loc=7)
+            points = [ax.scatter([], [], s=s * size_adj_factor, c='gray') for s in sizes]
+            ax.legend(points, labels, scatterpoints=1, title=key_size.title().replace('_', ' '), loc=7)
             if legend_1 is not None:
                 ax.add_artist(legend_1)  # Re-add original legend.
 
@@ -1628,8 +1233,7 @@ class DataSet(Block):
             plot_kwargs: dict = None, **kwargs
     ) -> (plt.Figure, Tuple[Tuple[plt.Axes]], List[DataSet]):
         """Plot a collection of 2d line plot for an x and y value property set.
-        Key value proposition of the function is the alignment of plots and
-        unification of axis limits.
+        Key value proposition of the function is the alignment of plots and unification of axis limits.
 
         Parameters
         ----------
@@ -1646,8 +1250,7 @@ class DataSet(Block):
             Marker size value key
 
         key_color: optional, default = None
-            Marker color value key. If a categorical key is given,
-            each color gets a monotone color gradient.
+            Marker color value key. If a categorical key is given, each color gets a monotone color gradient.
 
         size_adj_factor: optional, default = 1.0
             Linear scaling factor on the marker size if a key_size is given.
@@ -1656,11 +1259,9 @@ class DataSet(Block):
             Key to differentiate dataset for each sub-plot
 
         multiplot_set: optional, default = None
-            Differentiation of the multiplot key. This is optional if
-            key_multiplot is None or is a categorical value. In this case,
-            as many plots are created as there are values. If the
-            key_multiplot data is continuous, the multiplot_set can be an
-            integer, which defines how many plots are created or a vector
+            Differentiation of the multiplot key. This is optional if key_multiplot is None or is a categorical
+            value. In this case, as many plots are created as there are values. If the key_multiplot data is
+            continuous, the multiplot_set can be an integer, which defines how many plots are created or a vector
             array which more closely defines
 
         ax: optional, default = None
@@ -1679,12 +1280,10 @@ class DataSet(Block):
             Dictionary of keyword argument to pass to the legend command.
 
         plot_raw: optional, default = False
-            Bool flag whether the raw data should be plotted beneath the
-            target date. Data is plotted in grey.
+            Bool flag whether the raw data should be plotted beneath the target date. Data is plotted in grey.
 
         plot_errors: optional, default = False
-            Bool flag whether the error data should be plotted beneath the
-            target date. Data is plotted in red.
+            Bool flag whether the error data should be plotted beneath the target date. Data is plotted in red.
 
         plot_only_errors: optional, default = False
             Bool flag whether only the error data should be plotted.
@@ -1693,8 +1292,8 @@ class DataSet(Block):
             Plot key word arguments passed to the plotting function.
 
         kwargs: Optional
-            Keyword arguments used for additional plot adjustment,
-            e.g. disabling the color bar with colorbar=False, xlim, clim, ylim
+            Keyword arguments used for additional plot adjustment, e.g. disabling the color bar with colorbar=False,
+            xlim, clim, ylim
 
         See Also
         --------
@@ -1702,11 +1301,8 @@ class DataSet(Block):
         """
         if key_multiplot is None:
             fig, axes = self.plot_2d(
-                key_x, keys_y, key_categorical, key_size, key_color,
-                size_adj_factor, ax, title, x_label, y_label,
-                legend_kwargs,
-                None, plot_raw, plot_errors, plot_only_errors,
-                plot_kwargs, **kwargs)
+                key_x, keys_y, key_categorical, key_size, key_color, size_adj_factor, ax, title, x_label, y_label,
+                legend_kwargs, None, plot_raw, plot_errors, plot_only_errors, plot_kwargs, **kwargs)
             datasets = [self]
         else:
             if plot_kwargs is None:
@@ -1721,14 +1317,11 @@ class DataSet(Block):
 
             axes_1d = axes.reshape(-1)
             df = self.df
-            xlim = kwargs.get('xlim', [df.loc[:, key_x].min(),
-                                       df.loc[:, key_x].max()])
-            ylim = kwargs.get('ylim', [df.loc[:, keys_y].min(),
-                                       df.loc[:, keys_y].max()])
+            xlim = kwargs.get('xlim', [df.loc[:, key_x].min(), df.loc[:, key_x].max()])
+            ylim = kwargs.get('ylim', [df.loc[:, keys_y].min(), df.loc[:, keys_y].max()])
             if kwargs.get('clim', None) is None:
                 if key_color is not None:
-                    clim = [df.loc[:, key_color].min(),
-                            df.loc[:, key_color].max()]
+                    clim = [df.loc[:, key_color].min(), df.loc[:, key_color].max()]
                     norm = mpl.colors.Normalize(clim[0], clim[1])
                 else:
                     clim = False
@@ -1736,19 +1329,14 @@ class DataSet(Block):
             else:
                 clim = kwargs.get('clim')
                 norm = mpl.colors.Normalize(clim[0], clim[1])
-            kwargs.update({'xlim': xlim, 'ylim': ylim, 'clim': clim,
-                           'colorbar': False})
+            kwargs.update({'xlim': xlim, 'ylim': ylim, 'clim': clim, 'colorbar': False})
             plot_kwargs.update({'norm': norm})
 
             for i in range(n_plots):
                 if plot_only_errors:
-                    # Assumes the subset filter was added last in line.
-                    # Typically true.
-                    alternate_df = {
-                        'df_errors': datasets[i].df_errors.query(
-                            datasets[i].filter_list[-1]),
-                        'df_raw': datasets[i].raw_df.query(
-                            datasets[i].filter_list[-1])}
+                    # Assumes the subset filter was added last in line. Typically true.
+                    alternate_df = {'df_errors': datasets[i].df_errors.query(datasets[i].filter_list[-1]),
+                                    'df_raw': datasets[i].raw_df.query(datasets[i].filter_list[-1])}
                 else:
                     alternate_df = datasets[i].df
 
@@ -1757,18 +1345,13 @@ class DataSet(Block):
                     sub_title = datasets[i].filter_list[-1]
                 else:
                     sub_title = datasets[i].filter_list
-                sub_cat = [k for k in self.keys_categorical
-                           if k + " == " in sub_title]
+                sub_cat = [k for k in self.keys_categorical if k + " == " in sub_title]
                 if len(sub_cat) > 0:
-                    sub_title = sub_title.replace(
-                        sub_cat[0] + " == ", "").replace('"', '')
+                    sub_title = sub_title.replace(sub_cat[0] + " == ", "").replace('"', '')
 
-                self.plot_2d(key_x, keys_y, key_categorical, key_size,
-                             key_color, size_adj_factor, axes_1d[i],
-                             sub_title, x_label, y_label,
-                             legend_kwargs, alternate_df, plot_raw,
-                             plot_errors, plot_only_errors,
-                             plot_kwargs, **kwargs)
+                self.plot_2d(key_x, keys_y, key_categorical, key_size, key_color, size_adj_factor, axes_1d[i],
+                             sub_title, x_label, y_label, legend_kwargs, alternate_df, plot_raw, plot_errors,
+                             plot_only_errors, plot_kwargs, **kwargs)
 
             if title is not None:
                 plt.suptitle(title)
@@ -1780,10 +1363,7 @@ class DataSet(Block):
                     cmap = mpl.cm.jet
                 else:
                     cmap = mpl.cm.binary
-                cbar = plt.colorbar(
-                    mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-                    ax=axes.ravel().tolist(), shrink=0.95)
-                cbar.set_label(self.axis_labels[key_color] + ", "
-                               + unit_2_latex(self.units[key_color]))
+                cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes.ravel().tolist(), shrink=0.95)
+                cbar.set_label(self.axis_labels[key_color] + ", " + unit_2_latex(self.units[key_color]))
         return fig, axes, datasets
     # endregion

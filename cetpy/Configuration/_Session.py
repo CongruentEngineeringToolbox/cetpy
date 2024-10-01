@@ -8,7 +8,7 @@ program parameters, and working directory.
 
 import logging
 from importlib import reload
-from os.path import join, split, dirname, isdir
+from os.path import join, split, dirname, isdir, isfile
 from os import mkdir
 from shutil import copyfile
 import sys
@@ -71,10 +71,13 @@ class Session:
     def directory(self, val: str) -> None:
         self._directory = val
         if val is not None and not isdir(val):
-            # Create directory and copy the default config.
+            # Create directory if it doesn't exist yet
             mkdir(val)
-            copyfile(join(dirname(__file__), 'default_session_config.toml'),
-                     join(val, self.config_manager.session_config_name))
+        config_path = join(val, self.config_manager.session_config_name)
+        if val is not None and not isfile(config_path):
+            # Copy default config if no config is present within the target directory.
+            # Applies in both cases, if the folder already exists and if it doesn't.
+            copyfile(join(dirname(__file__), 'default_session_config.toml'), config_path)
         self.config_manager.directory = val
         self.start_logging()
 
@@ -113,8 +116,7 @@ class Session:
 
         # Log File
         formatter = logging.Formatter(
-            '[%(asctime)s:%(filename)15s:%(funcName)25s:%(lineno)3d:'
-            '%(levelname)8s]: %(message)s')
+            '[%(asctime)s:%(filename)15s:%(funcName)25s:%(lineno)3d:%(levelname)8s]: %(message)s')
 
         directory = self.directory
         if directory is None:
@@ -123,8 +125,7 @@ class Session:
         else:
             name = self.name
 
-        handler = logging.FileHandler(join(directory, 'cetpy.log'),
-                                      mode='w')
+        handler = logging.FileHandler(join(directory, 'cetpy.log'), mode='w')
         handler.setFormatter(formatter)
         handler.setLevel(log_level)
 

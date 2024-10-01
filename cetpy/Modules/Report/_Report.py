@@ -31,8 +31,7 @@ class Report:
             cls_list = type(block).mro()
             cls_list.reverse()
             for cls in cls_list:
-                cls_vp = [p for p in cls.__dict__.values()
-                          if isinstance(p, ValueProperty)]
+                cls_vp = [p for p in cls.__dict__.values() if isinstance(p, ValueProperty)]
                 cls_dict = dict(zip([p.name for p in cls_vp], cls_vp))
                 vp.update(cls_dict)
             self._value_properties = list(vp.values())
@@ -52,8 +51,7 @@ class Report:
     def output_properties(self) -> List[ValueProperty]:
         """Return list of ValueProperties of the parent block that are not
         fixed and calculated as outputs."""
-        return [p for p in self._value_properties
-                if p not in self.input_properties]
+        return [p for p in self._value_properties if p not in self.input_properties]
     # endregion
 
     # region Report Output
@@ -88,8 +86,7 @@ class Report:
                 lines += ['  ' + line for line in part_lines]
                 lines += ['\n']
 
-            parts_header = (
-                ' ' + block.name_display + "'s Part Reports Complete ")
+            parts_header = ' ' + block.name_display + "'s Part Reports Complete "
             lines += [parts_header.center(80, '-') + '\n\n']
 
         return lines
@@ -116,8 +113,7 @@ class Report:
                 # Add indent for better system depth visualisation
                 lines += ['  ' + line for line in solver_lines]
 
-            solvers_header = (
-                ' ' + block.name_display + "'s Solver Reports Complete ")
+            solvers_header = ' ' + block.name_display + "'s Solver Reports Complete "
             lines += ['  ' + solvers_header.center(80, '-') + '\n\n']
 
         if len(ports) > 0:
@@ -130,8 +126,7 @@ class Report:
                 # Add indent for better system depth visualisation
                 lines += ['  ' + line for line in port_lines]
 
-            ports_header = (
-                ' ' + block.name_display + "'s Port Reports Complete ")
+            ports_header = ' ' + block.name_display + "'s Port Reports Complete "
             lines += ['  ' + ports_header.center(80, '-') + '\n\n']
 
         lines += ['\n']
@@ -163,25 +158,19 @@ class Report:
         lines += ['# Parts: {:>30d}\n'.format(len(parts))]
 
         if len(solvers) > 0:
-            solver_lines = ['Solvers: {:30s}\n'.format(
-                solvers[0].__class__.__name__)]
+            solver_lines = ['Solvers: {:30s}\n'.format(solvers[0].__class__.__name__)]
             for sol in solvers[1:]:
-                solver_lines += ['         {:30s}\n'.format(
-                    sol.__class__.__name__)]
+                solver_lines += ['         {:30s}\n'.format(sol.__class__.__name__)]
             lines += solver_lines
         if len(ports) > 0:
-            ports_lines = ['Ports: {:32s}\n'.format(
-                ports[0].__class__.__name__)]
+            ports_lines = ['Ports: {:32s}\n'.format(ports[0].__class__.__name__)]
             for port in ports[1:]:
-                ports_lines += ['       {:32s}\n'.format(
-                    port.__class__.__name__)]
+                ports_lines += ['       {:32s}\n'.format(port.__class__.__name__)]
             lines += ports_lines
         if len(parts) > 0:
-            parts_lines = ['Parts: {:32s}\n'.format(
-                parts[0].name_display)]
+            parts_lines = ['Parts: {:32s}\n'.format(parts[0].name_display)]
             for part in parts[1:]:
-                parts_lines += ['       {:32s}\n'.format(
-                    part.name_display)]
+                parts_lines += ['       {:32s}\n'.format(part.name_display)]
             lines += parts_lines
         lines += ['Tolerance: {:>28.2e}\n'.format(block.tolerance)]
 
@@ -208,12 +197,10 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
-                    NotImplementedError, IndexError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError, NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
-                lines += ["{:25s}: {:15s}\n".format(
-                    p.name_display, value)]
+                lines += ["{:25s}: {:15s}\n".format(p.name_display, value)]
 
         return lines
 
@@ -238,12 +225,10 @@ class Report:
                 else:
                     value = p.str(block)
 
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
-                    NotImplementedError, IndexError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError, NotImplementedError, IndexError):
                 value = 'NaN'
             if len(value) < 100:
-                lines += ["{:25s}: {:15s}\n".format(
-                    p.name_display, value)]
+                lines += ["{:25s}: {:15s}\n".format(p.name_display, value)]
 
         return lines
     # endregion
@@ -261,8 +246,7 @@ class Report:
         for p in value_properties:
             try:
                 value = p.__get__(block)
-            except (ValueError, AttributeError, TypeError, ZeroDivisionError,
-                    NotImplementedError, IndexError):
+            except (ValueError, AttributeError, TypeError, ZeroDivisionError, NotImplementedError, IndexError):
                 continue
             if not include_long_arrays and isinstance(value, Iterable) \
                     and not isinstance(value, str) and len(value) > 5:
@@ -276,8 +260,7 @@ class Report:
             df.loc[n, 'unit'] = p.unit
             df.loc[n, 'axis_label'] = p.axis_label
             df.loc[n, 'precision'] = 0
-            if (p not in input_properties and isinstance(
-                    df.loc[n, 'value'], float | int | Iterable)):
+            if p not in input_properties and isinstance(df.loc[n, 'value'], float | int | Iterable):
                 df.loc[n, 'precision'] = block.tolerance
 
         return df
@@ -296,8 +279,7 @@ class Report:
 
         try:
             dfs = [(e, e.report.get_data_df(
-                include_long_arrays=include_long_arrays))
-                   for e in block.solvers + block.ports + block.parts]
+                include_long_arrays=include_long_arrays)) for e in block.solvers + block.ports + block.parts]
 
             dfs = [(e, d) for e, d in dfs if d.shape[0] > 0]
 
@@ -308,13 +290,11 @@ class Report:
                     names += [e.name]
                 else:
                     new_name = e.name + '2'
-                    d.loc[:, 'element'] = d.element.str.replace(
-                        e.name, new_name)
+                    d.loc[:, 'element'] = d.element.str.replace(e.name, new_name)
                     names += new_name
 
             for e, d in dfs:
-                d.loc[:, 'element'] = [block.name + '.' + s
-                                       for s in d.loc[:, 'element']]
+                d.loc[:, 'element'] = [block.name + '.' + s for s in d.loc[:, 'element']]
             if len(dfs) > 0:
                 df = pd.concat((df, *[d for e, d, in dfs]))
             df.reset_index(inplace=True, drop=True)

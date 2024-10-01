@@ -16,8 +16,8 @@ from typing import Any, Tuple, Callable, List, Iterable, Sized
 import numpy as np
 
 import cetpy
-from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, \
-    scale_value_unit, name_2_display
+from cetpy.Modules.Utilities.Labelling import name_2_unit, name_2_axis_label, scale_value_unit, name_2_display, \
+    unit_2_latex
 from cetpy.Modules.Utilities.InputValidation import validate_input
 
 
@@ -628,39 +628,40 @@ class ValueProperty:
         necessity_test = self.necessity_test
         reset = True
         if necessity_test >= 0:
-            same = (value == val_initial)
+            try:
+                same = (value == val_initial)
+            except ValueError as err:
+                if "broadcast together with shapes" in err.args[0]:
+                    return True  # Capture numpy length difference
+                else:
+                    raise err
             if isinstance(same, Iterable):
                 same = all(same)
             if same:
-                reset = False
+                return False
             elif type(value) == type(val_initial) or all(
-                    [isinstance(v, int | float | bool)
-                     for v in [value, val_initial]]):
+                    [isinstance(v, int | float | bool) for v in [value, val_initial]]):
                 if isinstance(value, str):
-                    reset = True
+                    return True
                 elif isinstance(value, int | float):
-                    reset = not np.isclose(
-                        value, val_initial,
-                        rtol=instance.tolerance * necessity_test, atol=0)
-                elif isinstance(value, dict) and (
-                        len(value) == len(val_initial)) and all([
+                    return not np.isclose(
+                        value, val_initial, rtol=instance.tolerance * necessity_test, atol=0)
+                elif isinstance(value, dict) and (len(value) == len(val_initial)) and all([
                         k in val_initial.keys() for k in value.keys()]):
-                    reset = not all([np.isclose(value[k], val_initial[k])
-                                     if isinstance(value[k], float | int)
-                                     else value[k] == val_initial[k]
-                                     for k in value.keys()])
-                elif isinstance(value, Iterable | Sized) and (
-                        len(value) == len(val_initial)):
+                    return not all([np.isclose(value[k], val_initial[k])
+                                    if isinstance(value[k], float | int)
+                                    else value[k] == val_initial[k]
+                                    for k in value.keys()])
+                elif isinstance(value, Iterable | Sized) and (len(value) == len(val_initial)):
                     # noinspection PyUnresolvedReferences
                     if not isinstance(value[0], float | int | bool):
-                        reset = True  # no proximity check necessary
+                        return True  # no proximity check necessary
                     else:
                         try:
-                            reset = not all(np.isclose(
-                                value, val_initial, atol=0,
-                                rtol=instance.tolerance * necessity_test))
+                            return not all(np.isclose(
+                                value, val_initial, atol=0, rtol=instance.tolerance * necessity_test))
                         except TypeError:
-                            reset = True  # Occurs if None in list.
+                            return True  # Occurs if None in list.
         return reset
 
     def __delete__(self, instance):
@@ -796,6 +797,11 @@ class ValueProperty:
         self._unit = val
 
     @property
+    def unit_latex(self) -> str:
+        """Unit of measure formatted for LaTeX."""
+        return unit_2_latex(self.unit)
+
+    @property
     def axis_label(self) -> str:
         """Axis label for visualisation."""
         return self._axis_label
@@ -807,7 +813,7 @@ class ValueProperty:
 
 
 class ValuePrinter:
-    """Formatter for block Value Properties to display the property in the
+    """Formatter for Block Value Properties to display the property in the
     truncated value form with unit of measure."""
     __slots__ = ['_instance']
 

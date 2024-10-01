@@ -26,6 +26,7 @@ class Solver:
     input_keys: List[str] = []
     convergence_keys: List[str] = []
     _reset_dict: Dict[str, Any] = {}
+    __parent_solve_priority__: bool = False
 
     def __init__(self, parent, tolerance: float = None):
         self._recalculate = True
@@ -224,6 +225,8 @@ class Solver:
             logger = self.parent.__logger__
             logger.debug(f"Starting {name}.")
             t1 = perf_counter()
+            self._recalculate = True  # Ensure even with parent priority the solver is rerun regardless of checks in
+            # the _solve function.
             self._solve()
             logger.debug(f"Finished {name} in {perf_counter() - t1} s.")
         else:
@@ -242,6 +245,9 @@ class Solver:
     # region Solver Functions
     def _pre_solve(self) -> None:
         """Conduct standardised pre-run of the solver."""
+        if self.__parent_solve_priority__ and self.parent.parent is not None:
+            # Ensure that this solver is only run as part of the larger solver.
+            self.parent.parent.solve_self()
         self._calculating = True
         self._write_last_input()
 
@@ -257,6 +263,11 @@ class Solver:
     def _solve(self) -> None:
         """Private solve function combining the pre-, core-, and post-solve functions."""
         self._pre_solve()
+        if self.__parent_solve_priority__ and self.solved:
+            # This solver was solved as part of a solver of a larger system, started by the call in the _pre_solve
+            # function of this solver. Checks for the parent priority first since the bool check is much less costly
+            # than the necessity evaluation of the solved function.
+            return
         self._solve_function()
         self._post_solve()
     # endregion

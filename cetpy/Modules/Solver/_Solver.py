@@ -220,13 +220,14 @@ class Solver:
 
     def force_solve(self) -> None:
         """Run the solver, regardless of the current solver state."""
+        self._recalculate = True  # Ensure even with parent priority the solver is rerun regardless of checks in
+        # the _solve function.
         if self.parent.__detailed_debug__:
             name = self.long_name
             logger = self.parent.__logger__
             logger.debug(f"Starting {name}.")
             t1 = perf_counter()
-            self._recalculate = True  # Ensure even with parent priority the solver is rerun regardless of checks in
-            # the _solve function.
+
             self._solve()
             logger.debug(f"Finished {name} in {perf_counter() - t1} s.")
         else:

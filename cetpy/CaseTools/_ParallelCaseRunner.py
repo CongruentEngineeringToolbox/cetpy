@@ -13,18 +13,46 @@ not by a property (`compute_output_df` instead of `output_df`).
 """
 
 from multiprocessing import Pool
-from typing import Optional
 
 import cetpy.CaseTools
-import cetpy.Modules.SysML
+from cetpy.CaseTools._CaseRunner import CaseSolver
+from cetpy.Modules.SysML import ValueProperty
 import numpy as np
 import pandas as pd
+
+
+class ParallelCaseSolver(CaseSolver):
+
+    def _solve_function(self) -> None:
+        runner: ParallelCaseRunner = self.parent
+        output_df = runner.output_df
+        n_cores = runner.n_cores
+
+        # Identify unsolved cases and only send these cases to the parallel case runners
+        idx_unsolved = output_df.solved == False
+
+        dfs = np.array_split(runner.case_generator.case_df[idx_unsolved, :], n_cores)
+        # `CaseRunner` objects are not picklable, so we pass arguments to
+        # other processes to create own CaseRunners. It is necessary,
+        # because the objects have internal state, which cannot be shared
+        # safely over multiple threads
+        args = [(self._serialize(), d) for d in dfs]
+        with Pool(n_cores) as pool:
+            evals = pool.starmap(ParallelCaseRunner._compute_cases, args)
+            result = pd.concat(evals)
+
+        # Rematch results to the unsolved cases, the output_df is mutable so changes are made within the
+        # ParallelCaseRunner output_df
+        output_df[idx_unsolved] = result
 
 
 class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
     """Same as `CaseRunner`, but can perform calculations in n parallel
     processes.
     """
+
+    n_cores = ValueProperty(permissible_types_list=int, permissible_list=(1, None))
+    save_instances = cetpy.Modules.SysML.ValueProperty(permissible_types_list=bool, permissible_list=[False])
 
     def _serialize(self) -> dict:
         """Returns all arguments, needed to create a copy of original
@@ -38,18 +66,7 @@ class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
         Also we could just use the `self.__dict__` but
         `self.case_generator.__dict__` is not picklable either.
         """
-        return {
-            "_module": self.module,
-            "_save_instances": self.save_instances,
-            "_additional_module_kwargs": self.additional_module_kwargs,
-            "_output_properties": self.output_properties,
-            "_sub_method": self.case_generator.sub_method,
-            "_case_df_postprocess_function": self.case_generator.case_df_postprocess_function,
-            "_output_df_postprocess_function": self.output_df_postprocess_function,
-            "_custom_evaluation_function": self.custom_evaluation_function,
-            "_enable_default_evaluation": self.enable_default_evaluation,
-            "_catch_errors": self.catch_errors,
-        }
+        return {vp.name: vp.__get__(self) for vp in self.report.input_properties}
 
     @staticmethod
     def _compute_cases(cr_args: dict, cases: pd.DataFrame) -> pd.DataFrame:
@@ -70,61 +87,9 @@ class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
             splitting ranges and generating cases in each process would result
             in gaps in design space (as far as I understand).
         """
-        cr = cetpy.CaseTools.CaseRunner(
-            cr_args["_module"],
-            cases,
-            save_instances=cr_args["_save_instances"],
-            catch_errors=cr_args["_catch_errors"],
-            additional_module_kwargs=cr_args["_additional_module_kwargs"],
-            output_properties=cr_args["_output_properties"],
-            method="direct",
-            sub_method=cr_args["_sub_method"],
-            n_cases=len(cases),
-            case_df_postprocess_function=cr_args["_case_df_postprocess_function"],
-            output_df_postprocess_function=cr_args["_output_df_postprocess_function"],
-            custom_evaluation_function=cr_args["_custom_evaluation_function"],
-            enable_default_evaluation=cr_args["_enable_default_evaluation"],
-        )
+        input_dict = cr_args.copy()
+        input_dict['input_df'] = cases
+        input_dict['method'] = 'direct'
+        input_dict['save_instances'] = False  # Not supported currently
+        cr = cetpy.CaseTools.CaseRunner(**input_dict)
         return cr.output_df
-
-    def compute_output_df(self, n_cores: Optional[int] = 1) -> pd.DataFrame:
-        """Return completed run of cases with input followed by output
-        values.
-
-        Parameters
-        ----------
-        n_cores: optional, default = 1
-            Number of processes to create for calculations. It should not exceed
-            the number of physical cores on you CPU (you can do it, but it won't
-            speed anything up). This is also the number of parts, that the
-            generated cases are split into.
-        """
-        if self._output_df is None:
-            # Initialize output `DataFframe` from input `DataFrame` and add
-            # columns for solver progress, any occurring error diagnostic,
-            # and performance timing.
-            self._output_df = self.input_df.copy()
-            cols = [
-                "solved",
-                "errored",
-                "error_class",
-                "error_message",
-                "error_location",
-            ]
-            self._output_df.loc[:, cols] = False
-            self._output_df.loc[:, "code_time"] = np.nan
-
-        # TODO: make a better solution than this. I don't know enough about
-        # internal structure of cetpy to do it.
-        if not self.case_solver.solved_calculating and not self.case_solver.hold:
-            dfs = np.array_split(self.case_generator.case_df, n_cores)
-            # `CaseRunner` objects are not picklable, so we pass arguments to
-            # other processes to create own CaseRunners. It is necessary,
-            # because the objects have internal state, which cannot be shared
-            # safely over multiple threads
-            args = [(self._serialize(), d) for d in dfs]
-            with Pool(n_cores) as pool:
-                evals = pool.starmap(ParallelCaseRunner._compute_cases, args)
-                result = pd.concat(evals)
-            self._output_df = result
-        return self._output_df

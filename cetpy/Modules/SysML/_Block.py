@@ -16,8 +16,7 @@ import logging
 from typing import List, Any, Dict
 
 import cetpy
-from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, \
-    name_2_display
+from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Solver import Solver
 from cetpy.Modules.Report import Report
@@ -48,8 +47,7 @@ class Block:
 
     print = ValuePrinter()
 
-    def __init__(self, name: str, abbreviation: str = None,
-                 parent: Block = None, tolerance: float = None, **kwargs
+    def __init__(self, name: str, abbreviation: str = None, parent: Block = None, tolerance: float = None, **kwargs
                  ) -> None:
         """Initialise a Block instance.
 

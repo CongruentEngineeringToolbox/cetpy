@@ -44,7 +44,7 @@ def get_absolute_config_path(file_path: str, additional_locations: List[str] = N
     """
     if file_path[-5:] != '.toml':
         file_path = file_path + '.toml'
-    return get_absolute_config_path(file_path, additional_locations=additional_locations)
+    return get_absolute_path(file_path, additional_locations=additional_locations)
 
 
 def load_config(file_path: str) -> dict:

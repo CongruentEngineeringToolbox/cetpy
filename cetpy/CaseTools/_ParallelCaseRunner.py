@@ -22,16 +22,23 @@ import pandas as pd
 class ParallelCaseSolver(CaseSolver):
 
     def _solve_function(self) -> None:
+        """Split the generated cases into n parts and feeds them to n processes.
+
+        Every process has it's own (regular) `CaseRunner` and processes the
+        cases in direct manner. Then the result is merged back into `output_df`
+        of the `ParallelCaseRunner`, that this object belongs to.
+        """
         runner: ParallelCaseRunner = self.parent
         output_df = runner.output_df
         n_cores = runner.n_cores
 
-        # Identify unsolved cases and only send these cases to the parallel case runners
-        idx_unsolved = output_df.solved == False
+        # Identify unsolved cases and only to prevent recomputing solved ones
+        # idx_unsolved = (runner.output_df.solved == False).to_list()
+        idx_unsolved = runner.output_df.solved == False
 
         dfs = np.array_split(runner.case_generator.case_df[idx_unsolved], n_cores)
         # `CaseRunner` objects are not picklable, so we pass arguments to
-        # other processes to create own CaseRunners. It is necessary,
+        # other processes to create own `CaseRunner`s. It is necessary,
         # because the objects have internal state, which cannot be shared
         # safely over multiple threads
         args = [(runner._serialize(), d) for d in dfs]
@@ -39,9 +46,21 @@ class ParallelCaseSolver(CaseSolver):
             evals = pool.starmap(ParallelCaseRunner._compute_cases, args)
             result = pd.concat(evals)
 
-        # Rematch results to the unsolved cases, the output_df is mutable so changes are made within the
-        # ParallelCaseRunner output_df
-        output_df[idx_unsolved] = result
+        # This comment is so long, because I spent like 2 days fighting this
+        # bug, so bear with me.
+        # Create columns, that don't exist in current version of the
+        # `output_df`. This is necessary, because python refuses to create them
+        # automatically and so the next line of code doesn't work without it.
+        # This will only create columns, that don't exist in `output_df`, and
+        # have no effect on columns, that exist in `output_df`, but not in
+        # `result`.
+        rescols = set(result.columns)
+        outcols = set(output_df.columns)
+        output_df[list(rescols.difference(outcols))] = 0
+
+        # Rematch results to the unsolved cases, the `output_df` is mutable so
+        # changes are made within the `ParallelCaseRunner`s `output_df`
+        output_df.loc[idx_unsolved] = result
 
 
 class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
@@ -55,7 +74,7 @@ class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
         permissible_types_list=bool, permissible_list=[False]
     )
 
-    # This is necessary to use ParallelCaseSolver instead of normal one
+    # This is necessary to use `ParallelCaseSolver` instead of normal one
     def __init__(self, *args, n_cores=1, **kwargs):
         super().__init__(*args, **kwargs)
         self.case_solver = ParallelCaseSolver(parent=self)

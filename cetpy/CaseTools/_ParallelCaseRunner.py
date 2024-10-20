@@ -4,10 +4,6 @@ Parallel Case Runner
 
 This file defines a CET case runner, that extends the original one and allows
 parallel processing on n cores.
-
-NOTE: I am not familiar enough with cetpy and it's inner workings, so I 
-implemented the class in a way, that doesn't require to dig too deeply into 
-cetpys internal structure.
 """
 
 from multiprocessing import Pool
@@ -24,7 +20,7 @@ class ParallelCaseSolver(CaseSolver):
     def _solve_function(self) -> None:
         """Split the generated cases into n parts and feeds them to n processes.
 
-        Every process has it's own (regular) `CaseRunner` and processes the
+        Every process has its own (regular) `CaseRunner` and processes the
         cases in direct manner. Then the result is merged back into `output_df`
         of the `ParallelCaseRunner`, that this object belongs to.
         """
@@ -33,7 +29,6 @@ class ParallelCaseSolver(CaseSolver):
         n_cores = runner.n_cores
 
         # Identify unsolved cases and only to prevent recomputing solved ones
-        # idx_unsolved = (runner.output_df.solved == False).to_list()
         idx_unsolved = runner.output_df.solved == False
 
         dfs = np.array_split(runner.case_generator.case_df[idx_unsolved], n_cores)
@@ -41,8 +36,10 @@ class ParallelCaseSolver(CaseSolver):
         # other processes to create own `CaseRunner`s. It is necessary,
         # because the objects have internal state, which cannot be shared
         # safely over multiple threads
+        # noinspection PyProtectedMember
         args = [(runner._serialize(), d) for d in dfs]
         with Pool(n_cores) as pool:
+            # noinspection PyProtectedMember
             evals = pool.starmap(ParallelCaseRunner._compute_cases, args)
             result = pd.concat(evals)
 
@@ -64,21 +61,18 @@ class ParallelCaseSolver(CaseSolver):
 
 
 class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
-    """Same as `CaseRunner`, but can perform calculations in n parallel
-    processes.
-    """
+    """Same as `CaseRunner`, but can perform calculations in n parallel processes."""
 
-    # TODO: this couldn't be read from the config file, idk why
     n_cores = ValueProperty(permissible_types_list=int, permissible_list=(1, None))
-    save_instances = ValueProperty(
-        permissible_types_list=bool, permissible_list=[False]
-    )
+    save_instances = ValueProperty(permissible_types_list=bool, permissible_list=[False])
+
+    __init_parameters__ = cetpy.CaseTools.CaseRunner.__init_parameters__.copy() + ['n_cores']
 
     # This is necessary to use `ParallelCaseSolver` instead of normal one
-    def __init__(self, *args, n_cores=1, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.solvers.remove(self.case_solver)
         self.case_solver = ParallelCaseSolver(parent=self)
-        self.n_cores = n_cores
 
     def _serialize(self) -> dict:
         """Returns all arguments, needed to create a copy of original

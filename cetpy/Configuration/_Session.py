@@ -70,10 +70,10 @@ class Session:
     @directory.setter
     def directory(self, val: str) -> None:
         self._directory = val
-        if val is not None and not isdir(val):
-            # Create directory if it doesn't exist yet
-            mkdir(val)
         if val is not None:
+            if not isdir(val):
+                # Create directory if it doesn't exist yet
+                mkdir(val)
             config_path = join(val, self.config_manager.session_config_name)
             if not isfile(config_path):
                 # Copy default config if no config is present within the target directory.

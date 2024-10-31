@@ -13,13 +13,14 @@ SysML Documentation:
 from __future__ import annotations
 
 import logging
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Callable
 
 import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Solver import Solver
 from cetpy.Modules.Report import Report
+from cetpy.Modules.plotting import PlotDescriptor
 
 
 class Block:
@@ -42,10 +43,13 @@ class Block:
     _hard_reset_dict: Dict[str, Any] = {}
     __fixed_parameters__: List[str] = []
     __default_parameters__: Dict[str, Any] = {}
+    __plot_functions__: Dict[str, Callable] = {}
+    __default_plot_x_axis__ = None
     _bool_parent_reset = True
     __detailed_debug__ = False
 
     print = ValuePrinter()
+    plot = PlotDescriptor()
 
     def __init__(self, name: str, abbreviation: str = None, parent: Block = None, tolerance: float = None, **kwargs
                  ) -> None:

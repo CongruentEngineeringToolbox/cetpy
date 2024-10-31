@@ -20,7 +20,7 @@ def get_plot_2d_value_properties(
         title: str = None,
         aspect1: bool = False,
         dpi: float = 150,
-        **kwargs) -> (plt.Figure, plt.Axes):
+        **kwargs) -> (plt.Figure, plt.Axes, plt.Axes | None):
     """Plot a 2d line plot for an x and y value property set.
 
     Parameters
@@ -42,6 +42,16 @@ def get_plot_2d_value_properties(
         Dots per inch for plot resolution. If an axis is passed, this property is not used.
     kwargs: dict, optional
         Keyword arguments are passed on to the matplotlib plot command.
+
+    Returns
+    -------
+    plt.Figure | None
+        matplotlib figure object. None if an axis is passed into the function using the 'ax' argument.
+    plt.Axes
+        matplotlib Axes object containing the plot.
+    plt.Axes | None
+        matplotlib Axes object containing the plot of the second y-axis and associated plots if multiple axis labels
+        or units are utilized. None otherwise.
     """
     # region convert to ValueProperty
     if isinstance(x, str):
@@ -61,6 +71,10 @@ def get_plot_2d_value_properties(
         axis_label = y.axis_label
         unit = y.unit_latex
         title_y_label = y.name_display
+        twin_axis = False
+        axis_labels = None
+        units = None
+        axis_label_2, unit_2 = None, None
     elif isinstance(y, Iterable):
         axis_labels = [y_i.axis_label for y_i in y]
         units = [y_i.unit_latex for y_i in y]
@@ -71,12 +85,39 @@ def get_plot_2d_value_properties(
             raise ValueError("This plot functions supports a maximum of two sets of axis labels and units. However "
                              "more were detected.\n" + "\n".join(["{:20s}: {:15s}, {:10s}".format(n, l, u)
                                                                   for n, l, u in zip(names, axis_labels, units)]))
+        elif len(np.unique(axis_labels)) > 1 or len(np.unique(units)) > 1:
+            twin_axis = True
+            if len(np.unique(axis_labels)) > 1:
+                axis_label, axis_label_2 = np.unique(axis_labels)
+            else:
+                axis_label, axis_label_2 = axis_labels[0], axis_labels[0]  # Label shared by both axis
+            if len(np.unique(units)) > 1:
+                unit, unit_2 = np.unique(units)
+            else:
+                unit, unit_2 = units[0], units[0]  # Unit shared by both axis
 
-        value_y_single = y[0]
-        if value_y_single.axis_label[-1] == 's':
-            title_y_label = value_y_single.axis_label + 'es'
+            # Rudimentary pluralisation
+            if axis_label[-1] == 's':
+                title_y_label_1 = axis_label + 'es'
+            else:
+                title_y_label_1 = axis_label + 's'
+            if axis_label_2[-1] == 's':
+                title_y_label_2 = axis_label_2 + 'es'
+            else:
+                title_y_label_2 = axis_label_2 + 's'
+            title_y_label = title_y_label_1 + ' and ' + title_y_label_2
+
         else:
-            title_y_label = value_y_single.axis_label + 's'
+            twin_axis = False
+            axis_label = axis_labels[0]
+            unit = units[0]
+            axis_label_2, unit_2 = None, None
+
+            # Rudimentary pluralisation
+            if axis_label[-1] == 's':
+                title_y_label = axis_label + 'es'
+            else:
+                title_y_label = axis_label + 's'
 
     else:
         raise ValueError("value_y must be ValueProperty or Iterable[ValueProperty].")
@@ -87,24 +128,49 @@ def get_plot_2d_value_properties(
     else:
         fig = None
 
+    if twin_axis:
+        ax2 = ax.twinx()
+    else:
+        ax2 = None
+
     if isinstance(y, ValueProperty):
-        ax.plot(x.value, y.value, label=y.name, **kwargs)
+        ax.plot(x.value(instance), y.value(instance), label=y.name, **kwargs)
         if fig is None:  # Already has lines on axis
             ax.legend()
     elif isinstance(y, Iterable):
-        for val_y in y:
-            ax.plot(x.value, val_y.value, label=val_y.name, **kwargs)
-        ax.legend()
+        if not twin_axis:
+            for val_y in y:
+                ax.plot(x.value(instance), val_y.value(instance), label=val_y.name, **kwargs)
+            lines, line_labels = ax.get_legend_handles_labels()
+        else:
+            label_1 = axis_labels[0]
+            unit_1 = units[0]
+            for val_y, l, u in zip(y, axis_labels, units):
+                if l == label_1 and u == unit_1:
+                    ax.plot(x.value(instance), val_y.value(instance), label=val_y.name, **kwargs)
+                else:
+                    ax2.plot(x.value(instance), val_y.value(instance), '--', label=val_y.name, **kwargs)
+            lines, line_labels = ax.get_legend_handles_labels()
+            lines_2, line_labels_2 = ax2.get_legend_handles_labels()
+            lines = lines + lines_2
+            line_labels = line_labels + line_labels_2
+        ax.legend(lines, line_labels)
 
     if aspect1:
         # noinspection PyTypeChecker
         ax.set_aspect(1)
 
     ax.set_xlabel(x.axis_label + ", " + x.unit_latex)
-    ax.set_ylabel(value_y_single.axis_label + ", " + value_y_single.unit_latex)
+    ax.set_ylabel(axis_label + ", " + unit)
+    if ax2 is not None:
+        ax2.set_ylabel(axis_label_2 + ", " + unit_2)
+
     if title is None:
         ax.set_title(instance.name_display + " " + title_y_label)
     else:
         ax.set_title(title)
 
-    return fig, ax
+    if fig is not None:
+        fig.tight_layout()
+
+    return fig, ax, ax2

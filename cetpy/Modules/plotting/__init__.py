@@ -1,1 +1,1 @@
-from _PlotDescriptor import PlotDescriptor
+from cetpy.Modules.plotting._PlotDescriptor import PlotDescriptor

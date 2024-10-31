@@ -31,6 +31,9 @@ def value_property(equation: str = None,
                    ) -> Callable[[Callable], ValueProperty]:
     """Decorator Factory to create ValueProperties from getter functions.
 
+    Use the doc string of the fget function to set a unit for the property.
+    The specification must follow the pattern '[unit].'
+
     See Also
     --------
     ValueProperty
@@ -411,7 +414,9 @@ class ValueProperty:
             overwrite sections of the code for testing purposes. Per default
             the input_permissible property is False when setting via the
             decorator, in which case the property always uses the getter
-            function.
+            function. The doc string of the fget function can also be used
+            to specify a unit for the property. This must follow the pattern
+            '[unit].'
         fset: optional, default = None
             Custom setter function. If None is supplied, the input value is
             directly written to the private attribute of the instance ('_'

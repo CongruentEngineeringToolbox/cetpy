@@ -28,7 +28,7 @@ class PlotDescriptor:
         except AttributeError:
             block = self._instance
             if name in block.__plot_functions__.keys():
-                block.__plot_functions__[name]()
+                block.__plot_functions__[name](block)
             else:
                 vp = getattr(type(block), name)
                 if not isinstance(vp, ValueProperty):

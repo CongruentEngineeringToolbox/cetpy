@@ -27,7 +27,11 @@ def get_absolute_path(file_path: str, additional_locations: List[str] = None) ->
     if isfile(abspath(file_path)):
         return abspath(file_path)
     else:
-        for location in (additional_locations + cetpy.Configuration.config_locations):
+        if additional_locations is None:
+            locations = cetpy.Configuration.config_locations
+        else:
+            locations = additional_locations + cetpy.Configuration.config_locations
+        for location in locations:
             abs_path = join(location, file_path)
             if isfile(abs_path):
                 return abs_path

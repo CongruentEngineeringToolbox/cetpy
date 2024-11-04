@@ -9,7 +9,7 @@ parallel processing on n cores.
 from multiprocessing import Pool
 
 import cetpy.CaseTools
-from cetpy.CaseTools._CaseRunner import CaseSolver
+from cetpy.CaseTools._CaseRunner import CaseSolver, CaseRunner
 from cetpy.Modules.SysML import ValueProperty
 import numpy as np
 import pandas as pd
@@ -60,13 +60,13 @@ class ParallelCaseSolver(CaseSolver):
         output_df.loc[idx_unsolved] = result
 
 
-class ParallelCaseRunner(cetpy.CaseTools.CaseRunner):
+class ParallelCaseRunner(CaseRunner):
     """Same as `CaseRunner`, but can perform calculations in n parallel processes."""
 
     n_cores = ValueProperty(permissible_types_list=int, permissible_list=(1, None))
     save_instances = ValueProperty(permissible_types_list=bool, permissible_list=[False])
 
-    __init_parameters__ = cetpy.CaseTools.CaseRunner.__init_parameters__.copy() + ['n_cores']
+    __init_parameters__ = CaseRunner.__init_parameters__.copy() + ['n_cores']
 
     # This is necessary to use `ParallelCaseSolver` instead of normal one
     def __init__(self, *args, **kwargs):

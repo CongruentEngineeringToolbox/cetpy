@@ -10,7 +10,10 @@ from __future__ import annotations
 from typing import List, Any, Dict
 from copy import deepcopy
 from time import perf_counter
+from os import mkdir
+from os.path import join, isdir
 
+import cetpy
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportSolver
 
@@ -82,6 +85,22 @@ class Solver:
         solver_copy = deepcopy(self)
         solver_copy.parent = None
         return solver_copy
+
+    @property
+    def directory(self) -> str | None:
+        """Return the save directory of the block. If a parent block is defined, the folder is defined within the
+        folder of the parent block. If no parent block is defined, the folder is defined within the session
+        directory. If the session directory is not defined, no folder will be defined and saving is disabled. If a
+        directory is defined but does not yet exist, a directory will be created."""
+        if self.parent is not None:
+            directory = join(self.parent.directory, self.name)
+        elif cetpy.active_session.directory is not None:
+            directory = join(cetpy.active_session.directory, self.name)
+        else:
+            return None
+        if not isdir(directory):
+            mkdir(directory)
+        return directory
     # endregion
 
     # region Interface Functions

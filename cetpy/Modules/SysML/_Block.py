@@ -19,7 +19,7 @@ import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Solver import Solver
-from cetpy.Modules.Report import Report
+from cetpy.Modules.Report import ReportBlock
 from cetpy.Modules.plotting import PlotDescriptor
 
 
@@ -50,6 +50,7 @@ class Block:
 
     print = ValuePrinter()
     plot = PlotDescriptor()
+    directory = Solver.directory
 
     def __init__(self, name: str, abbreviation: str = None, parent: Block = None, tolerance: float = None, **kwargs
                  ) -> None:
@@ -92,7 +93,7 @@ class Block:
         self.ports = []
         self.requirements = []
         self.solvers: List[Solver] = []
-        self.report = Report(parent=self)
+        self.report = ReportBlock(parent=self)
         self.parent = parent
         # endregion
 

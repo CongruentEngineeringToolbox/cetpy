@@ -2,9 +2,11 @@
 ReportPort
 ==========
 
-This file adapts the SysML Block Report to the SysML Port class.
+This file adapts the Report class to the SysML Port class.
 """
 from typing import List
+from os.path import join, isdir
+from os import mkdir
 
 from cetpy.Modules.Report import Report
 
@@ -13,26 +15,6 @@ class ReportPort(Report):
     """SysML Port Output Formatter of the Congruent Engineering Toolbox."""
 
     # region Report Text
-    def get_report_text(self) -> List[str]:
-        """Return list of lines for the report of the port.
-
-        Unlike the block Report this function is functionally the same as
-        the get_report_self_text function.
-        """
-        return self.get_report_self_text()
-
-    def get_report_self_text(self) -> List[str]:
-        lines = self.__get_report_header_text__()
-        lines += ['\n']
-        lines += self.__get_report_input_text__()
-        lines += ['\n']
-        lines += self.__get_report_output_text__()
-
-        lines += ['\n']
-        header = ' ' + self._parent.__class__.__name__ + ' Complete '
-        lines += [header.center(80, '-') + '\n\n']
-        return lines
-
     def __get_report_header_text__(self) -> List[str]:
         port = self._parent
 
@@ -57,4 +39,44 @@ class ReportPort(Report):
         lines += ['Tolerance: {:>18.2e}\n'.format(port.tolerance)]
 
         return lines
+    # endregion
+
+    # region Data Output
+    @staticmethod
+    def _add_element_specific_data_df_self(df, block):
+        super()._add_element_specific_data_df_self(df, block)
+        if block.upstream is not None:
+            df.loc['upstream', 'value'] = block.upstream.name
+        if block.downstream is not None:
+            df.loc['downstream', 'value'] = block.downstream.name
+
+    def save_data_df_self(self, include_long_arrays: bool = True) -> None:
+        upstream = self._parent.upstream
+        downstream = self._parent.downstream
+        df = self.get_data_df_self(include_long_arrays=include_long_arrays)
+        if upstream is not None:
+            directory = join(upstream.directory, self._parent._upstream_dict_name.strip('_'))
+            if not isdir(directory):
+                mkdir(directory)
+            df.to_csv(join(directory, 'data_df_self.csv'))
+        if downstream is not None:
+            directory = join(downstream.directory, self._parent._downstream_dict_name.strip('_'))
+            if not isdir(directory):
+                mkdir(directory)
+            df.to_csv(join(directory, 'data_df_self.csv'))
+
+    def save_data_df(self, include_long_arrays: bool = True) -> None:
+        upstream = self._parent.upstream
+        downstream = self._parent.downstream
+        df = self.get_data_df(include_long_arrays=include_long_arrays)
+        if upstream is not None:
+            directory = join(upstream.directory, self._parent._upstream_dict_name.strip('_'))
+            if not isdir(directory):
+                mkdir(directory)
+            df.to_csv(join(directory, 'data_df.csv'))
+        if downstream is not None:
+            directory = join(downstream.directory, self._parent._downstream_dict_name.strip('_'))
+            if not isdir(directory):
+                mkdir(directory)
+            df.to_csv(join(directory, 'data_df.csv'))
     # endregion

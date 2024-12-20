@@ -2,11 +2,13 @@
 Report
 ======
 
-This file specifies an output formatter for a SysML Block providing
-user-friendly and accessible views on the created blocks.
+This file specifies an output formatter baseline for the ReportBlock, ReportSolver, and ReportPort specialized
+formatters providing user-friendly and accessible views on the created blocks.
 """
-from typing import List, Iterable
+from typing import List, Dict, Iterable
 import pandas as pd
+import matplotlib.pyplot as plt
+from os.path import join
 
 from cetpy.Modules.SysML import ValueProperty
 
@@ -19,6 +21,17 @@ class Report:
     def __init__(self, parent):
         self._parent = parent
         self.__generate_value_property_list__()
+
+    def save_all_self(self) -> None:
+        """Save all block output to the block directory excluding parts, ports, and solvers."""
+        self.save_data_df_self()
+        self.save_all_plots()
+
+    def save_all(self, include_data_df: bool = True):
+        """Save all block output to the block directory including parts, ports, and solvers."""
+        self.save_all_self()
+        if include_data_df:
+            self.save_data_df()
 
     # region Value Properties
     def __generate_value_property_list__(self) -> None:
@@ -69,111 +82,24 @@ class Report:
 
     # region Report Text
     def get_report_text(self) -> List[str]:
-        """Return list of lines for the report of the block and its parts."""
-        block = self._parent
-        parts = block.parts
-
-        lines = self.get_report_self_text()
-
-        if len(parts) > 0:
-            lines += ['\n']
-            parts_header = ' ' + block.name_display + "'s Part Reports "
-            lines += [parts_header.center(80, '=') + '\n']
-
-            for part in block.parts:
-                part_lines = part.report.get_report_text()
-                # Add indent for better system depth visualisation
-                lines += ['  ' + line for line in part_lines]
-                lines += ['\n']
-
-            parts_header = ' ' + block.name_display + "'s Part Reports Complete "
-            lines += [parts_header.center(80, '-') + '\n\n']
-
-        return lines
+        """Return list of lines for the report of the system element and its parts."""
+        return self.get_report_self_text()
 
     def get_report_self_text(self) -> List[str]:
         """Return list of lines for the report of just the block."""
-        block = self._parent
-        solvers = block.solvers
-        ports = block.ports
+        raise NotImplementedError()
 
+    def __get_report_header_text__(self) -> List[str]:
+        """Return header list of lines for the report."""
         lines = self.__get_report_header_text__()
         lines += ['\n']
         lines += self.__get_report_input_text__()
         lines += ['\n']
         lines += self.__get_report_output_text__()
 
-        if len(solvers) > 0:
-            lines += ['\n']
-            solvers_header = ' ' + block.name_display + "'s Solver Reports "
-            lines += ['  ' + solvers_header.center(80, '=') + '\n']
-
-            for sol in solvers:
-                solver_lines = sol.report.get_report_text()
-                # Add indent for better system depth visualisation
-                lines += ['  ' + line for line in solver_lines]
-
-            solvers_header = ' ' + block.name_display + "'s Solver Reports Complete "
-            lines += ['  ' + solvers_header.center(80, '-') + '\n\n']
-
-        if len(ports) > 0:
-            lines += ['\n']
-            ports_header = ' ' + block.name_display + "'s Port Reports "
-            lines += ['  ' + ports_header.center(80, '=') + '\n']
-
-            for port in ports:
-                port_lines = port.report.get_report_text()
-                # Add indent for better system depth visualisation
-                lines += ['  ' + line for line in port_lines]
-
-            ports_header = ' ' + block.name_display + "'s Port Reports Complete "
-            lines += ['  ' + ports_header.center(80, '-') + '\n\n']
-
         lines += ['\n']
-        header = ' ' + self._parent.name_display + ' Complete '
-        lines += [header.center(80, '-') + '\n\n\n']
-        return lines
-
-    def __get_report_header_text__(self) -> List[str]:
-        """Return header list of lines for the report."""
-        block = self._parent
-        solvers = block.solvers
-        ports = block.ports
-        parts = block.parts
-
-        lines = []
-
-        lines += ['=' * 80 + '\n']
-        header = ' ' + block.name_display + ' '
-        lines += [header.center(80, '=') + '\n']
-        lines += ['=' * 80 + '\n']
-
-        lines += ['Name: {:>33s}\n'.format(block.name_display)]
-        lines += ['Abbreviation: {:>25s}\n'.format(block.abbreviation)]
-        lines += ['Class: {:>32s}\n'.format(type(block).__name__)]
-        if block.parent is not None:
-            lines += ['Parent: {:>31s}\n'.format(block.parent.name_display)]
-        lines += ['# Solvers: {:>28d}\n'.format(len(solvers))]
-        lines += ['# Ports: {:>30d}\n'.format(len(ports))]
-        lines += ['# Parts: {:>30d}\n'.format(len(parts))]
-
-        if len(solvers) > 0:
-            solver_lines = ['Solvers: {:30s}\n'.format(solvers[0].__class__.__name__)]
-            for sol in solvers[1:]:
-                solver_lines += ['         {:30s}\n'.format(sol.__class__.__name__)]
-            lines += solver_lines
-        if len(ports) > 0:
-            ports_lines = ['Ports: {:32s}\n'.format(ports[0].__class__.__name__)]
-            for port in ports[1:]:
-                ports_lines += ['       {:32s}\n'.format(port.__class__.__name__)]
-            lines += ports_lines
-        if len(parts) > 0:
-            parts_lines = ['Parts: {:32s}\n'.format(parts[0].name_display)]
-            for part in parts[1:]:
-                parts_lines += ['       {:32s}\n'.format(part.name_display)]
-            lines += parts_lines
-        lines += ['Tolerance: {:>28.2e}\n'.format(block.tolerance)]
-
+        header = ' ' + self._parent.__class__.__name__ + ' Complete '
+        lines += [header.center(80, '-') + '\n\n']
         return lines
 
     def __get_report_input_text__(self) -> List[str]:
@@ -234,7 +160,12 @@ class Report:
     # endregion
 
     # region Data Output
-    def get_data_df_self(self, include_long_arrays: bool = True):
+    @staticmethod
+    def _add_element_specific_data_df_self(df, block):
+        """Add additional entries to data_df_self, specific to the element type that is reported on."""
+        df.loc['model', 'value'] = str(block.__class__)
+
+    def get_data_df_self(self, include_long_arrays: bool = True) -> pd.DataFrame:
         """Return pandas DataFrame of all settings, inputs, and outputs."""
         block = self._parent
         value_properties = self.value_properties
@@ -243,6 +174,8 @@ class Report:
         # Initialise array with one object column since the value can be
         # anything, an object instance, float, str, list, array, etc.
         df = pd.DataFrame(columns=['value'], dtype=object)
+        self._add_element_specific_data_df(df, block)
+
         for p in value_properties:
             try:
                 value = p.__get__(block)
@@ -259,13 +192,13 @@ class Report:
             df.at[n, 'value'] = value  # use at for inserting iterable
             df.loc[n, 'unit'] = p.unit
             df.loc[n, 'axis_label'] = p.axis_label
-            df.loc[n, 'precision'] = 0
-            if p not in input_properties and isinstance(df.loc[n, 'value'], float | int | Iterable):
-                df.loc[n, 'precision'] = block.tolerance
+            # df.loc[n, 'precision'] = 0
+            # if p not in input_properties and isinstance(df.loc[n, 'value'], float | int | Iterable):
+            #     df.loc[n, 'precision'] = block.tolerance
 
         return df
 
-    def get_data_df(self, include_long_arrays: bool = True):
+    def get_data_df(self, include_long_arrays: bool = True) -> pd.DataFrame:
         """Return pandas DataFrame of all properties including parts."""
         block = self._parent
         df = self.get_data_df_self(include_long_arrays=include_long_arrays)
@@ -301,4 +234,45 @@ class Report:
         except AttributeError:
             pass
         return df
+
+    def save_data_df_self(self, include_long_arrays: bool = True) -> None:
+        """Save a csv of the data_df_self to file into the associated block directory."""
+        self.get_data_df_self(include_long_arrays=include_long_arrays).to_csv(join(
+            self._parent.directory, 'data_df_self.csv'))
+
+    def save_data_df(self, include_long_arrays: bool = True) -> None:
+        """Save a csv of the data_df to file into the associated block directory."""
+        self.get_data_df(include_long_arrays=include_long_arrays).to_csv(join(self._parent.directory, 'data_df.csv'))
+    # endregion
+
+    # region Plot Output
+    def get_all_plots(self) -> Dict[plt.Figure]:
+        """Return all plt.Figure objects of the associated model element.
+
+        See Also
+        --------
+        plot_all: visualize all plots
+        save_all_plots: save all plots to files.
+        """
+        return {}  # Modified in Report classes for specific model elements
+
+    def plot_all(self) -> None:
+        """Plot and display all plots of the associated block.
+
+        See Also
+        --------
+        get_all_plots: plot Figure objects
+        save_all_plots: save all plots to files.
+        """
+        [fig.show() for fig in self.get_all_plots().values()]
+
+    def save_all_plots(self) -> None:
+        """Save all plots of the associated block into its directory.
+
+        See Also
+        --------
+        get_all_plots: plot Figure objects
+        plot_all: visualize all plots
+        """
+        [fig.savefig(join(self._parent.directory, key + '.png')) for key, fig in self.get_all_plots().items()]
     # endregion

@@ -12,7 +12,7 @@ import numpy as np
 
 def name_2_abbreviation(name: str) -> str:
     """Return a sensible abbreviation for a component name."""
-    name_split = name.split('_')
+    name_split = name.strip('_').split('_')
     if len(name_split) == 1:
         abbreviation = name_split[0][:3].upper()
     else:

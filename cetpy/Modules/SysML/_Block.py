@@ -15,8 +15,12 @@ from __future__ import annotations
 import logging
 from typing import List, Any, Dict, Callable
 
+import networkx as nx
+import uuid
+
 import cetpy
 from cetpy.Modules.Utilities.Labelling import name_2_abbreviation, name_2_display
+from cetpy.Modules.Utilities.ModelStructureGraph import get_model_structure_graph
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Solver import Solver
 from cetpy.Modules.Report import ReportBlock
@@ -34,13 +38,14 @@ class Block:
     attach a session logger, and create sub parts according to model definitions.
     """
 
-    __slots__ = ['_resetting', 'name', 'abbreviation', '_parent', '_tolerance', '_logger', 'parts', 'ports',
-                 'requirements', 'solvers', '_get_init_parameters', '__init_kwargs__', '__dict__']
+    __slots__ = ['_resetting', 'name', 'abbreviation', '_parent', '_tolerance', '_structure_graph',
+                 '_composition_structure_graph', '_logger', 'parts', 'ports', 'requirements', 'solvers',
+                 '_get_init_parameters', '__init_kwargs__', '__dict__']
 
     __init_parameters__: List[str] = []
     __init_parts__: List[str] = []
     _reset_dict: Dict[str, Any] = {}
-    _hard_reset_dict: Dict[str, Any] = {}
+    _hard_reset_dict: Dict[str, Any] = {'_structure_graph': None, '_composition_structure_graph': None}
     __fixed_parameters__: List[str] = []
     __default_parameters__: Dict[str, Any] = {}
     __plot_functions__: Dict[str, Callable] = {}
@@ -74,11 +79,14 @@ class Block:
             self._logger = cetpy.active_session.logger
         else:
             self._logger = None
+        self.__uuid__ = uuid.uuid4()
         # endregion
 
         # region Solver Flags
         self._resetting = False
         self._parent = None
+        self._structure_graph: nx.DiGraph | None = None
+        self._composition_structure_graph: nx.DiGraph | None = None
         self._tolerance = 0  # Full initialisation at the end.
         # endregion
 
@@ -253,6 +261,7 @@ class Block:
             val.parts += [self]
         self._parent = val
         self.reset()
+        self.__reset_structure__()
 
     def __deep_getattr__(self, name: str) -> Any:
         """Get value from block or its parts, solvers, and ports."""
@@ -285,6 +294,39 @@ class Block:
     def logger(self) -> logging.Logger:
         """Return the appropriate logger for the block."""
         return self._logger
+
+    @property
+    def structure_graph(self) -> nx.DiGraph:
+        """Entire model structure graph."""
+        if self.parent is not None:
+            return self.parent.structure_graph
+        else:
+            if self._structure_graph is None:
+                self._structure_graph = get_model_structure_graph(
+                    self, include_solvers=True, include_ports=True, include_parts=True, include_references=True,
+                    include_value_properties=False, include_connected_blocks=False, include_instances=True)
+            return self._structure_graph
+
+    @property
+    def composition_structure_graph(self) -> nx.DiGraph:
+        """Entire model structure graph."""
+        if self.parent is not None:
+            return self.parent.composition_structure_graph
+        else:
+            if self._composition_structure_graph is None:
+                self._composition_structure_graph = get_model_structure_graph(
+                    self, include_solvers=True, include_ports=True, include_parts=True, include_references=False,
+                    include_value_properties=False, include_connected_blocks=False, include_instances=True)
+
+                # Clear all others in internal structure. Not called in structure reset to avoid unnecessary generation.
+                parts_full_depth = [node for node in self._composition_structure_graph.nodes.values()
+                                    if node['type'] == 'block' and node['instance'] != self]
+                for p in parts_full_depth:
+                    # noinspection PyProtectedMember
+                    p['instance']._structure_graph = None
+                    # noinspection PyProtectedMember
+                    p['instance']._composition_structure_graph = None
+            return self._composition_structure_graph
     # endregion
 
     # region Solver Functions
@@ -332,6 +374,15 @@ class Block:
             p.hard_reset(convergence_reset)
         self._resetting = False
         self.reset()
+
+    def __reset_structure__(self) -> None:
+        """Reset the structure graphs to be re-build on next request. Propagates through the full system."""
+        if self.parent is not None:
+            self.parent.__reset_structure__()
+            return
+
+        self._structure_graph = None
+        self._composition_structure_graph = None
     # endregion
 
     # region Solve

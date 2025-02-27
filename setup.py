@@ -38,6 +38,7 @@ setup(
         'pytest',
         'matplotlib',
         'statsmodels',
-        'scikit-learn'
+        'scikit-learn',
+        'networkx'
     ],
 )

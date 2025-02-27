@@ -32,3 +32,19 @@ class ReportSolver(Report):
 
         return lines
     # endregion
+
+    # region Graph Output
+    def get_header_attributes(self) -> dict:
+        parent = self._parent
+        super_dict = super().get_header_attributes()
+        super_dict.update({
+            'solved': parent.solved,
+            'calculating': parent.calculating,
+        })
+        if parent.parent is None:
+            super_dict.update({'parent': 'None'})
+        else:
+            super_dict.update({'parent': parent.parent.name_display})
+        return super_dict
+    # endregion
+

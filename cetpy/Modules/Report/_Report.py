@@ -10,17 +10,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from os.path import join
 
-from cetpy.Modules.SysML import ValueProperty
+from cetpy.Modules.SysML import ValueProperty, ReferenceProperty
 
 
 class Report:
     """SysML Block Output Formatter of the Congruent Engineering Toolbox."""
 
-    __slots__ = ['_parent', '_value_properties']
+    __slots__ = ['_parent', '_value_properties', '_reference_properties']
 
     def __init__(self, parent):
         self._parent = parent
-        self.__generate_value_property_list__()
+        self.__generate_property_lists__()
 
     def save_all_self(self) -> None:
         """Save all block output to the block directory excluding parts, ports, and solvers."""
@@ -34,25 +34,31 @@ class Report:
             self.save_data_df()
 
     # region Value Properties
-    def __generate_value_property_list__(self) -> None:
+    def __generate_property_lists__(self) -> None:
         """Generate a list of value properties of the parent block."""
         block = self._parent
         if block is None:
             self._value_properties = []
+            self._reference_properties = []
         else:
             vp = {}
+            rp = {}
             cls_list = type(block).mro()
-            cls_list.reverse()
+            cls_list.reverse()  # Process highest priority class last, so its value overwrites any previous
             for cls in cls_list:
                 cls_vp = [p for p in cls.__dict__.values() if isinstance(p, ValueProperty)]
-                cls_dict = dict(zip([p.name for p in cls_vp], cls_vp))
-                vp.update(cls_dict)
+                cls_rp = [p for p in cls.__dict__.values() if isinstance(p, ReferenceProperty)]
+                cls_dict_vp = dict(zip([p.name for p in cls_vp], cls_vp))
+                cls_dict_rp = dict(zip([p.name for p in cls_rp], cls_rp))
+                vp.update(cls_dict_vp)
+                rp.update(cls_dict_rp)
             self._value_properties = list(vp.values())
+            self._reference_properties = list(rp.values())
 
     @property
     def value_properties(self) -> List[ValueProperty]:
         """Return list of ValueProperties of the parent block."""
-        return self._value_properties
+        return self._value_properties + []  # Protect list
 
     @property
     def input_properties(self) -> List[ValueProperty]:
@@ -65,6 +71,11 @@ class Report:
         """Return list of ValueProperties of the parent block that are not
         fixed and calculated as outputs."""
         return [p for p in self._value_properties if p not in self.input_properties]
+
+    @property
+    def reference_properties(self) -> List[ValueProperty]:
+        """Return list of ValueProperties of the parent block."""
+        return self._reference_properties + []  # Protect list
     # endregion
 
     # region Report Output
@@ -87,10 +98,6 @@ class Report:
 
     def get_report_self_text(self) -> List[str]:
         """Return list of lines for the report of just the block."""
-        raise NotImplementedError()
-
-    def __get_report_header_text__(self) -> List[str]:
-        """Return header list of lines for the report."""
         lines = self.__get_report_header_text__()
         lines += ['\n']
         lines += self.__get_report_input_text__()
@@ -98,8 +105,23 @@ class Report:
         lines += self.__get_report_output_text__()
 
         lines += ['\n']
-        header = ' ' + self._parent.__class__.__name__ + ' Complete '
+        header = ' ' + type(self._parent).__name__ + ' Complete '
         lines += [header.center(80, '-') + '\n\n']
+        return lines
+
+    def __get_report_header_text__(self) -> List[str]:
+        """Return header list of lines for the report."""
+        block = self._parent
+        lines = []
+
+        lines += ['=' * 80 + '\n']
+        header = ' ' + block.name_display + ' '
+        lines += [header.center(80, '=') + '\n']
+        lines += ['=' * 80 + '\n']
+
+        lines += ['Name: {:>33s}\n'.format(block.name_display)]
+        lines += ['Class: {:>32s}\n'.format(type(block).__name__)]
+        lines += ['Tolerance: {:>28.2e}\n'.format(block.tolerance)]
         return lines
 
     def __get_report_input_text__(self) -> List[str]:
@@ -246,7 +268,7 @@ class Report:
     # endregion
 
     # region Plot Output
-    def get_all_plots(self) -> Dict[plt.Figure]:
+    def get_all_plots(self) -> Dict[str, plt.Figure]:
         """Return all plt.Figure objects of the associated model element.
 
         See Also
@@ -275,4 +297,18 @@ class Report:
         plot_all: visualize all plots
         """
         [fig.savefig(join(self._parent.directory, key + '.png')) for key, fig in self.get_all_plots().items()]
+    # endregion
+
+    # region Graph Output
+    def get_header_attributes(self) -> dict:
+        """Return dictionary of attributes for report headers.
+
+        This includes name, class, and configuration parameters.
+        """
+        parent = self._parent
+        return {
+            'name': parent.name_display,
+            'class': type(parent).__name__,
+            'tolerance': parent.tolerance
+        }
     # endregion

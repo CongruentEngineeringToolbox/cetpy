@@ -8,17 +8,19 @@ Blocks for Flow Items.
 
 from __future__ import annotations
 from typing import Any
+import uuid
 
 import cetpy.Modules.SysML
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportPort
+from cetpy.Modules.Utilities.Labelling import name_2_display
 
 
 class Port:
     """SysML Port element."""
     __slots__ = ['_upstream', '_downstream', '_upstream_dict_name',
                  '_downstream_dict_name', '_name', 'parent', '_flow_item',
-                 '_resetting', '_tolerance', '__dict__']
+                 '_resetting', '_tolerance', '__uuid__', '__dict__']
 
     __flow_properties__ = []
 
@@ -31,6 +33,7 @@ class Port:
                  upstream_dict_name: str = None,
                  downstream_dict_name: str = None,
                  tolerance: float = None):
+        self.__uuid__ = uuid.uuid4()
         self._resetting = False
         self._flow_item = None
         self._upstream = None
@@ -63,6 +66,11 @@ class Port:
     @name.setter
     def name(self, val: str) -> None:
         self._name = val
+
+    @property
+    def name_display(self) -> str:
+        """Return a display formatted version of the block name."""
+        return name_2_display(self.name)
 
     @property
     def upstream(self) -> cetpy.Modules.SysML.Block | None:

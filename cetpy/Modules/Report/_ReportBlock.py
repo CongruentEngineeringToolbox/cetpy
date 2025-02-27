@@ -149,8 +149,8 @@ class ReportBlock(Report):
         df.loc['fixed_self', 'value'] = block.fixed_self
     # endregion
 
-    # region Plotting
-    def get_all_plots(self) -> Dict[plt.Figure]:
+    # region Plot Output
+    def get_all_plots(self) -> Dict[str, plt.Figure]:
         """Return all plt.Figure objects of the associated block. Generated from the Block __plot_functions__
         attribute and list of vector ValueProperties.
 
@@ -187,4 +187,23 @@ class ReportBlock(Report):
                                 plots[vp.name] = fig[0]
                             break
         return plots
+    # endregion
+
+    # region Graph Output
+    def get_header_attributes(self) -> dict:
+        parent = self._parent
+        super_dict = super().get_header_attributes()
+        super_dict.update({
+            'abbreviation': parent.abbreviation,
+            'fixed': parent.fixed,
+            'solved': parent.solved,
+            'solvers': [type(p).__name__ for p in parent.solvers],
+            'ports': [type(p).__name__ for p in parent.ports],
+            'parts': [p.name_display for p in parent.parts],
+        })
+        if parent.parent is None:
+            super_dict.update({'parent': 'None'})
+        else:
+            super_dict.update({'parent': parent.parent.name_display})
+        return super_dict
     # endregion

@@ -12,17 +12,19 @@ from copy import deepcopy
 from time import perf_counter
 from os import mkdir
 from os.path import join, isdir
+import uuid
 
 import cetpy
 from cetpy.Modules.SysML import ValuePrinter
 from cetpy.Modules.Report import ReportSolver
+from cetpy.Modules.Utilities.Labelling import name_2_display
 
 
 class Solver:
     """Decentralised Solver of the Congruent Engineering Toolbox."""
 
     __slots__ = ['_recalculate', '_calculating', '_hold', '_resetting', '_parent', '_tolerance', 'report',
-                 '_last_input']
+                 '_last_input', '__uuid__']
 
     print = ValuePrinter()
 
@@ -32,6 +34,7 @@ class Solver:
     __parent_solve_priority__: bool = False
 
     def __init__(self, parent, tolerance: float = None):
+        self.__uuid__ = uuid.uuid4()
         self._recalculate = True
         self._calculating = False
         self._resetting = False
@@ -55,6 +58,11 @@ class Solver:
     def long_name(self) -> str:
         """Solver name with owning block name."""
         return self.parent.name_display + ' ' + self.name
+
+    @property
+    def name_display(self) -> str:
+        """Return a display formatted version of the block name."""
+        return name_2_display(self.name)
 
     @property
     def parent(self):

@@ -8,7 +8,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name='cetpy',
-    version='0.2.0b2',
+    version='0.2.0b3',
     description='Congruent Engineering Toolbox',
     long_description=long_description,
     long_description_content_type="text/markdown",
